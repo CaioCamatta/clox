@@ -11,6 +11,14 @@
         "string": "c",
         "vector": "c",
         "string_view": "c",
-        "*.tcc": "c"
+        "*.tcc": "c",
+        "__hash_table": "c",
+        "__tuple": "c",
+        "chrono": "c",
+        "compare": "c",
+        "cstddef": "c",
+        "limits": "c",
+        "ratio": "c",
+        "variant": "c"
     }
 }
