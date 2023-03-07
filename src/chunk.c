@@ -26,10 +26,9 @@ void writeChunk(Chunk* chunk, uint8_t byte) {
 
 /*  Add a constant to the chunk */
 int addConstant(Chunk* chunk, Value value) {
-  writeValueArray(&chunk->constants, value);
-  return chunk->constants.count - 1;
+    writeValueArray(&chunk->constants, value);
+    return chunk->constants.count - 1;
 }
-
 
 /* Delete array and free its memory */
 void freeChunk(Chunk* chunk) {

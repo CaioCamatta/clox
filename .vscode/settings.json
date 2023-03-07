@@ -19,6 +19,7 @@
         "cstddef": "c",
         "limits": "c",
         "ratio": "c",
-        "variant": "c"
+        "variant": "c",
+        "value.h": "c"
     }
 }
