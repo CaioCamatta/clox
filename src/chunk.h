@@ -7,6 +7,7 @@
 // Each instruction has a one-byte opcode
 typedef enum {
     OP_RETURN,
+    OP_CONSTANT,
 } OpCode;
 
 // Chunk is a dynamic array used to store other data along with instruction

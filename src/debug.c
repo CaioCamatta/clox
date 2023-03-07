@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "value.h"
+
 void disassembleChunk(Chunk* chunk, const char* name) {
     printf("== %s ==\n", name);
 
@@ -15,6 +17,19 @@ static int simpleInstruction(const char* name, int offset) {
     return offset + 1;
 }
 
+static int constantInstruction(const char* name, Chunk* chunk, int offset) {
+    uint8_t constant = chunk->code[offset + 1];
+
+    // Print opcode name and constnat index from subsequent byte in chunk.
+    printf("%-16s %4d '", name, constant);
+    // Print actual value of the constant (which is know at compile time)
+    printValue(chunk->constants.values[constant]);
+    printf("'\n");
+
+    return offset + 2;
+}
+
+/* Print instruction; Return the number of the offset of the next instruction. */
 int disassembleInstruction(Chunk* chunk, int offset) {
     printf("%04d ", offset);
 
@@ -23,6 +38,8 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     switch (instruction) {
         case OP_RETURN:
             return simpleInstruction("OP_RETURN", offset);
+        case OP_CONSTANT:
+            return constantInstruction("OP_CONSTANT", chunk, offset);
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;
