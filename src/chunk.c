@@ -19,12 +19,25 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
         int oldCapacity = chunk->capacity;
         chunk->capacity = GROW_CAPACITY(oldCapacity);
         chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
-        // Keep lines in array parallel with code
-        chunk->lines = GROW_ARRAY(int, chunk->lines, oldCapacity, chunk->capacity);
+    }
+
+    // Keep track of lines in a run-length-encoded array parallel with code
+    if (chunk->lineInfo.capacity < *(chunk->lineInfo.count) + 1) {
+        int oldCapacity = chunk->lineInfo.capacity;
+        chunk->lineInfo.capacity = GROW_CAPACITY(oldCapacity);
+        chunk->lineInfo.lines = GROW_ARRAY(int, chunk->lineInfo.lines, oldCapacity, chunk->lineInfo.capacity);
+        chunk->lineInfo.count = GROW_ARRAY(int, chunk->lineInfo.count, oldCapacity, chunk->lineInfo.capacity);
     }
 
     chunk->code[chunk->count] = byte;
-    chunk->lines[chunk->count] = line;
+
+    // If preceding line is the same as current line, increment count
+    if (chunk->count > 0 && chunk->lineInfo.lines[*(chunk->lineInfo.count)] == line) {
+        chunk->lineInfo.count++;
+    } else {
+        chunk->lineInfo.lines[*(chunk->lineInfo.count)] = line;
+    }
+
     chunk->count++;
 }
 

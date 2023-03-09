@@ -10,12 +10,19 @@ typedef enum {
     OP_CONSTANT,
 } OpCode;
 
+// Run-length encoded line information
+typedef struct {
+    int capacity;
+    int *lines;
+    int *count;
+} LineInfo;
+
 // Chunk is a dynamic array used to store other data along with instruction
 typedef struct {
     int capacity;
     int count;
     uint8_t* code;
-    int* lines;  // Keeps track of line numbers for the bytecode
+    LineInfo lineInfo;  // Keeps track of line numbers for the bytecode
     ValueArray constants;
 } Chunk;
 
