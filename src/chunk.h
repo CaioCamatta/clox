@@ -8,6 +8,7 @@
 typedef enum {
     OP_RETURN, // One-byte opcode
     OP_CONSTANT, // Two bytes: opcode, constant index (operand)
+    OP_CONSTANT_LONG, // Four bytes: opcode, 24-bit constant index (operand)
 } OpCode;
 
 // Chunk is a dynamic array used to store other data along with instruction
@@ -22,6 +23,7 @@ typedef struct {
 void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);
 void writeChunk(Chunk* chunk, uint8_t byte, int line);
+void writeConstant(Chunk* chunk, Value value, int line);
 int addConstant(Chunk* chunk, Value value);
 
 #endif

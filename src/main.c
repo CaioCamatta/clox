@@ -6,9 +6,9 @@ int main(int arc, const char *argv[]) {
     Chunk chunk;
     initChunk(&chunk);
 
-    int constant = addConstant(&chunk, 1.2);
-    writeChunk(&chunk, OP_CONSTANT, 42);
-    writeChunk(&chunk, constant, 42);
+    for (int i = 0; i < 300; i++) {
+        writeConstant(&chunk, 1000 + i, 10);
+    }
 
     writeChunk(&chunk, OP_RETURN, 42);
 

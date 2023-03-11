@@ -20,6 +20,8 @@
         "limits": "c",
         "ratio": "c",
         "variant": "c",
-        "value.h": "c"
+        "value.h": "c",
+        "streambuf": "c",
+        "debug.h": "c"
     }
 }
