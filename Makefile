@@ -1,5 +1,5 @@
 EXE = clox
-CC = gcc
+CC = gcc -std=c99
 CFLAGS = -Wall -g
 OBJ = obj
 SRC = src
