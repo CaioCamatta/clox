@@ -24,6 +24,7 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
 
     chunk->code[chunk->count] = byte;
     // Keep line info in array parallel with code
+    // TODO (optimization) use run-length encoding to reduce size of lines array.
     chunk->lines[chunk->count] = line;
     chunk->count++;
 }

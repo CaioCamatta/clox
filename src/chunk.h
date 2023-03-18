@@ -10,6 +10,7 @@ typedef enum {
     OP_CONSTANT, // Two bytes: opcode, constant index (operand)
 } OpCode;
 
+// A "Chunk" of code.
 // Chunk is a dynamic array used to store other data along with instruction
 typedef struct {
     int capacity;
