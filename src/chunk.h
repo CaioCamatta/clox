@@ -6,8 +6,13 @@
 
 // Each instruction has a one-byte opcode
 typedef enum {
-    OP_RETURN, // One-byte opcode
-    OP_CONSTANT, // Two bytes: opcode, constant index (operand)
+    OP_CONSTANT,  // Two bytes: opcode, constant index (operand)
+    OP_ADD,
+    OP_SUBTRACT,
+    OP_MULTIPLY,
+    OP_DIVIDE,
+    OP_NEGATE,
+    OP_RETURN,  // One-byte opcode
 } OpCode;
 
 // A "Chunk" of code.

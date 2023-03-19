@@ -2,6 +2,9 @@
 #define clox_vm_h
 
 #include "chunk.h"
+#include "value.h"
+
+#define STACK_MAX 256
 
 typedef enum {
     INTERPRET_OK,
@@ -11,11 +14,15 @@ typedef enum {
 
 typedef struct {
     Chunk* chunk;
-    uint8_t* ip;  // Instruction pointer (aka program counter) that pointer to next instruction to be executed
+    uint8_t* ip;             // Instruction pointer (aka program counter) that pointer to next instruction to be executed
+    Value stack[STACK_MAX];  // Array is declared directly inline
+    Value* stackTop;         // Use actual pointer instead of int index (faster dereferencing)
 } VM;
 
 void initVM();
 void freeVM();
 InterpretResult interpret(Chunk* chunk);
+void push(Value value);
+Value pop();
 
 #endif
