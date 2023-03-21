@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "compiler.h"
 #include "debug.h"
 
 // TODO (optimization): explicitly make the VM obj a pointer and pass it around.
@@ -94,9 +95,14 @@ static InterpretResult run() {
 #undef BINARY_OP
 }
 
-InterpretResult interpret(Chunk* chunk) {
-    vm.chunk = chunk;
-    // TODO (optimization): store ip in local var so we keep it in a register. Reason: ip gets modified *very* often.
-    vm.ip = vm.chunk->code;  // initialize IP by pointing to first instruction in chunk of code.
-    return run();
+// InterpretResult interpret(Chunk* chunk) {
+//     vm.chunk = chunk;
+//     // TODO (optimization): store ip in local var so we keep it in a register. Reason: ip gets modified *very* often.
+//     vm.ip = vm.chunk->code;  // initialize IP by pointing to first instruction in chunk of code.
+//     return run();
+// }
+
+InterpretResult interpret(const char* source) {
+    compile(source);
+    return INTERPRET_OK;
 }
