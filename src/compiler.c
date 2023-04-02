@@ -20,6 +20,7 @@ typedef struct {
 typedef enum {
     PREC_NONE,
     PREC_ASSIGNMENT,  // =
+    PREC_TERNARY,     // ?:
     PREC_OR,          // or
     PREC_AND,         // and
     PREC_EQUALITY,    // == !=
@@ -143,6 +144,15 @@ static void expression();
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precendence);
 
+/* Mixfix operator for ternary (?:) */
+static void ternary() {
+    parsePrecedence(PREC_TERNARY);
+
+    consume(TOKEN_COLON, "Expected ':' after then branch of ternary operator .");
+
+    parsePrecedence(PREC_ASSIGNMENT);
+}
+
 /* Binary operator. Left associative.
 How it works: Push left and right onto stack, then operation. The VM will execute left, right, then pop both, compute, and push result. */
 static void binary() {
@@ -205,9 +215,9 @@ static void unary() {
  *  1. the function to compile a prefix expressions starting w/ that type
  *  2. the function to compile an infix expression whole left operand is followed by a token of that type
  *  3. the precedence of an infix expression that uses that token as operator
- * 
+ *
  * (We don't care about the precedence of the prefix expression starting with a given token because all prefix operators in Lox have the same precendece)
- * 
+ *
  * Initializer syntax for rules: [TOKEN_TYPE is a number from the enumeration] */
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
@@ -239,6 +249,8 @@ ParseRule rules[] = {
     [TOKEN_FOR] = {NULL, NULL, PREC_NONE},
     [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
     [TOKEN_IF] = {NULL, NULL, PREC_NONE},
+    [TOKEN_QUESTION] = {NULL, ternary, PREC_TERNARY},
+    [TOKEN_COLON] = {NULL, ternary, PREC_TERNARY},
     [TOKEN_NIL] = {NULL, NULL, PREC_NONE},
     [TOKEN_OR] = {NULL, NULL, PREC_NONE},
     [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
