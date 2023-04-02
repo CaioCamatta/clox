@@ -1,12 +1,15 @@
 EXE = clox
 CC = gcc -std=c99
-CFLAGS = -Wall -g
+CFLAGS = -Wall
 OBJ = obj
 SRC = src
 SOURCES := $(wildcard $(SRC)/*.c)
 OBJECTS := $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(wildcard $(SRC)/*.c)) 
 
 all: $(EXE)
+
+debug: CFLAGS += -g
+debug: $(EXE)
 
 $(EXE): $(SRC) $(OBJ) $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@
