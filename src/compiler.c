@@ -171,6 +171,7 @@ static void binary() {
     }
 }
 
+/* Prefix expression that starts with '(' */
 static void grouping() {
     // Assume initial '(' has already been consumed
     expression();
@@ -200,7 +201,14 @@ static void unary() {
     }
 }
 
-/*  */
+/* Given a token type, find
+ *  1. the function to compile a prefix expressions starting w/ that type
+ *  2. the function to compile an infix expression whole left operand is followed by a token of that type
+ *  3. the precedence of an infix expression that uses that token as operator
+ * 
+ * (We don't care about the precedence of the prefix expression starting with a given token because all prefix operators in Lox have the same precendece)
+ * 
+ * Initializer syntax for rules: [TOKEN_TYPE is a number from the enumeration] */
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},

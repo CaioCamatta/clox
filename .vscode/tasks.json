@@ -6,7 +6,7 @@
     {
       "label": "tasks",
       "type": "shell",
-      "command": "make",
+      "command": "make debug",
       "group": {
         "kind": "build",
         "isDefault": true

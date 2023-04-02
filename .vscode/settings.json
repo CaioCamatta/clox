@@ -23,6 +23,8 @@
         "value.h": "c",
         "stdio.h": "c",
         "vm.h": "c",
-        "common.h": "c"
+        "common.h": "c",
+        "string.h": "c",
+        "scanner.h": "c"
     }
 }
