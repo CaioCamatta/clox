@@ -260,7 +260,7 @@ static void parsePrecedence(Precedence precedence) {
     ParseFn prefixRule = getRule(parser.previous.type)->prefix;
     // If there's no prefix parse, it must be a syntax error.
     if (prefixRule == NULL) {
-        error("Expected expression.");
+        error("Expect expression.");
         return;
     }
 
