@@ -181,7 +181,7 @@ static void grouping() {
 static void number() {
     // Assume the token for the number literal has already been consumed
     double value = strtod(parser.previous.start, NULL);
-    emitConstant(value);
+    emitConstant(NUMBER_VAL(value));
 }
 
 static void unary() {
@@ -205,9 +205,9 @@ static void unary() {
  *  1. the function to compile a prefix expressions starting w/ that type
  *  2. the function to compile an infix expression whole left operand is followed by a token of that type
  *  3. the precedence of an infix expression that uses that token as operator
- * 
+ *
  * (We don't care about the precedence of the prefix expression starting with a given token because all prefix operators in Lox have the same precendece)
- * 
+ *
  * Initializer syntax for rules: [TOKEN_TYPE is a number from the enumeration] */
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},

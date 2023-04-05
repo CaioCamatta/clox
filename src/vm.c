@@ -1,5 +1,6 @@
 #include "vm.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 
 #include "common.h"
@@ -11,6 +12,23 @@ VM vm;  // Single global VM object; not ideal, but good enough for starters.
 
 static void resetStack() {
     vm.stackTop = vm.stack;
+}
+
+/* Print a runtime error. Callers can pass a format string followed by arguments, just like 'printf()'. */
+static void runtimeError(const char* format, ...) {
+    // Show error message
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fputs("\n", stderr);
+
+    // Show which line of code was being executed when the error occurred.
+    // To find the token original token, we look up the line in the debug info compiled into the chunk, which should correspond to the line of source code that the bytecode came from. See emitByte().
+    size_t instruction = vm.ip - vm.chunk->code - 1;  // bytecode instruction index
+    int line = vm.chunk->lines[instruction];          // look up line using index
+    fprintf(stderr, "[line %d] in script\n", line);
+    resetStack();
 }
 
 void initVM() {
@@ -28,6 +46,11 @@ void push(Value value) {
 Value pop() {
     vm.stackTop--;
     return *vm.stackTop;
+}
+
+// peek(0) peeks the top of the stack
+static Value peek(int distance) {
+    return vm.stackTop[-1 - distance];
 }
 
 /* The heart of the VM. Most of the VM's time is spent in this function. */
@@ -80,7 +103,11 @@ static InterpretResult run() {
                 BINARY_OP(/);
                 break;
             case OP_NEGATE:
-                push(-pop());
+                if (!IS_NUMBER(peek(0))) {
+                    runtimeError("Operand must be a number.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(NUMBER_VAL(-AS_NUMBER(pop())));
                 break;
             case OP_RETURN: {
                 printValue(pop());
@@ -94,13 +121,6 @@ static InterpretResult run() {
 #undef READ_CONSTANT
 #undef BINARY_OP
 }
-
-// InterpretResult interpret(Chunk* chunk) {
-//     vm.chunk = chunk;
-//     // TODO (optimization): store ip in local var so we keep it in a register. Reason: ip gets modified *very* often.
-//     vm.ip = vm.chunk->code;  // initialize IP by pointing to first instruction in chunk of code.
-//     return run();
-// }
 
 InterpretResult interpret(const char* source) {
     Chunk chunk;

@@ -25,6 +25,7 @@
         "vm.h": "c",
         "common.h": "c",
         "string.h": "c",
-        "scanner.h": "c"
+        "scanner.h": "c",
+        "debug.h": "c"
     }
 }
