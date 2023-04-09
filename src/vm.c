@@ -2,10 +2,13 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
+#include "memory.h"
+#include "object.h"
 
 // TODO (optimization): explicitly make the VM obj a pointer and pass it around.
 VM vm;  // Single global VM object; not ideal, but good enough for starters.
@@ -33,9 +36,12 @@ static void runtimeError(const char* format, ...) {
 
 void initVM() {
     resetStack();
+    vm.objects = NULL;
 }
 
+// Once the program is done, free all objects
 void freeVM() {
+    freeObjects();
 }
 
 void push(Value value) {
@@ -48,7 +54,9 @@ Value pop() {
     return *vm.stackTop;
 }
 
-// peek(0) peeks the top of the stack
+/* peek(0) peeks the top of the stack
+peek(1) peeks the second highest element of the stack
+*/
 static Value peek(int distance) {
     return vm.stackTop[-1 - distance];
 }
@@ -56,6 +64,21 @@ static Value peek(int distance) {
 /* nil and false are falsey. Everything else is truthy*/
 static bool isFalsey(Value value) {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+}
+
+/* Concatenate two strings */
+static void concatenate() {
+    ObjString* b = AS_STRING(pop());
+    ObjString* a = AS_STRING(pop());
+
+    int length = a->length + b->length;
+    char* chars = ALLOCATE(char, length + 1);
+    memcpy(chars, a->chars, a->length);
+    memcpy(chars + a->length, b->chars, b->length);
+    chars[length] = '\0';
+
+    ObjString* result = takeString(chars, length);
+    push(OBJ_VAL(result));
 }
 
 /* The heart of the VM. Most of the VM's time is spent in this function. */
@@ -121,7 +144,20 @@ static InterpretResult run() {
                 BINARY_OP(BOOL_VAL, <);
                 break;
             case OP_ADD:
-                BINARY_OP(NUMBER_VAL, +);
+                // If both operands are strings
+                if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
+                    concatenate();
+                } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+                    double b = AS_NUMBER(pop());
+                    double a = AS_NUMBER(pop());
+                    push(NUMBER_VAL(a + b));
+                } else {
+                    // TODO(feature) allow string + number
+                    runtimeError(
+                        "Operands must be two numbers or two strings.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
                 break;
             case OP_SUBTRACT:
                 BINARY_OP(NUMBER_VAL, -);
