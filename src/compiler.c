@@ -248,7 +248,9 @@ static void unary() {
  *
  * (We don't care about the precedence of the prefix expression starting with a given token because all prefix operators in Lox have the same precendece)
  *
- * Initializer syntax for rules: [TOKEN_TYPE is a number from the enumeration] */
+ * Initializer syntax for rules: [TOKEN_TYPE is a number from the enumeration] 
+ * 
+ * TODO(optimization): add more specific instrucitons and benchmark (e.g. small int constants, adding and subtracting 1, etc*/
 ParseRule rules[] = {
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
