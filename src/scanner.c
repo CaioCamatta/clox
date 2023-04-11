@@ -174,7 +174,7 @@ static Token string() {
         if (peek() == '\n') scanner.line++;
         advance();
     }
-    if (!isAtEnd()) return errorToken("Unterminated string.");
+    if (isAtEnd()) return errorToken("Unterminated string.");
 
     advance();
     // Note: we defer converting the literal lexeme to a runtime value later, in the compiter.

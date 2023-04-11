@@ -17,7 +17,10 @@ typedef struct {
     uint8_t* ip;             // Instruction pointer (aka program counter) that pointer to next instruction to be executed
     Value stack[STACK_MAX];  // Array is declared directly inline
     Value* stackTop;         // Use actual pointer instead of int index (faster dereferencing)
+    Obj* objects;            // Pointer to head of objects linked list
 } VM;
+
+extern VM vm;
 
 void initVM();
 void freeVM();
