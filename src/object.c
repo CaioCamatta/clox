@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "memory.h"
+#include "table.h"
 #include "value.h"
 #include "vm.h"
 
@@ -32,6 +33,8 @@ static ObjString* allocateString(char* chars, int length,
     string->length = length;
     string->chars = chars;
     string->hash = hash;
+    // Intern every string we create
+    tableSet(&vm.strings, string, NIL_VAL);
     return string;
 }
 
@@ -49,12 +52,25 @@ static uint32_t hashString(const char* key, int length) {
 This function is used for concatenation.*/
 ObjString* takeString(char* chars, int length) {
     uint32_t hash = hashString(chars, length);
+
+    ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
+    if (interned != NULL) {
+        // If the string we're "taking" is already in the list of interned strings, free the string that was passed in and use the interned one.
+        FREE_ARRAY(char, chars, length + 1);
+        return interned;
+    }
+
     return allocateString(chars, length, hash);
 }
 
 /* Copy a string to heap */
 ObjString* copyString(const char* chars, int length) {
     uint32_t hash = hashString(chars, length);
+    // If a string is already in the list of interned strings, instead of copying it we just return a reference.
+    // Interning all strings allow the VM to take for granted that any two strings at different addresses have different contents.
+    ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
+    if (interned != NULL) return interned;
+
     char* heapChars = ALLOCATE(char, length + 1);
     // Copy string from the lexeme (in the monolithic source string)
     memcpy(heapChars, chars, length);
