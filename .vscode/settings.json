@@ -27,5 +27,6 @@
         "string.h": "c",
         "scanner.h": "c",
         "debug.h": "c"
-    }
+    },
+    "editor.formatOnSave": true
 }
