@@ -2,6 +2,7 @@
 #define clox_vm_h
 
 #include "chunk.h"
+#include "table.h"
 #include "value.h"
 
 #define STACK_MAX 256
@@ -17,6 +18,7 @@ typedef struct {
     uint8_t* ip;             // Instruction pointer (aka program counter) that pointer to next instruction to be executed
     Value stack[STACK_MAX];  // Array is declared directly inline
     Value* stackTop;         // Use actual pointer instead of int index (faster dereferencing)
+    Table strings;           // Stores ("interns") every string that's been created. Used for string deduplication.
     Obj* objects;            // Pointer to head of objects linked list
 } VM;
 

@@ -18,7 +18,7 @@ typedef enum {
 
 struct Obj {
     ObjType type;
-    struct Obj* next; // Intrusiev pointer to next object for GC 
+    struct Obj* next;  // Intrusive pointer to next object for GC
 };
 
 // ObjString can be cast to Obj, which allows for a form of OOP.
@@ -27,6 +27,7 @@ struct ObjString {
     Obj obj;     // state all Objs share
     int length;  // length without \0
     char* chars;
+    uint32_t hash;
 };
 
 ObjString* takeString(char* chars, int length);

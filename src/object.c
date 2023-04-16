@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "memory.h"
+#include "table.h"
 #include "value.h"
 #include "vm.h"
 
@@ -25,28 +26,57 @@ static Obj* allocateObject(size_t size, ObjType type) {
 
 /* Create new ObjString on the heap and initialize its fields.
 Similar to a constructor in OOP.*/
-static ObjString* allocateString(char* chars, int length) {
+static ObjString* allocateString(char* chars, int length,
+                                 uint32_t hash) {
     // Call the "base class" constructor
     ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
     string->length = length;
     string->chars = chars;
+    string->hash = hash;
+    // Intern every string we create
+    tableSet(&vm.strings, string, NIL_VAL);
     return string;
+}
+
+/* FNV-1a hash */
+static uint32_t hashString(const char* key, int length) {
+    uint32_t hash = 2166136261u;
+    for (int i = 0; i < length; i++) {
+        hash ^= (u_int8_t)key[i];
+        hash *= 16777619;
+    }
+    return hash;
 }
 
 /* Allocate string in heap from C string passed in, essentially claiming ownership of the string given.
 This function is used for concatenation.*/
 ObjString* takeString(char* chars, int length) {
-    return allocateString(chars, length);
+    uint32_t hash = hashString(chars, length);
+
+    ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
+    if (interned != NULL) {
+        // If the string we're "taking" is already in the list of interned strings, free the string that was passed in and use the interned one.
+        FREE_ARRAY(char, chars, length + 1);
+        return interned;
+    }
+
+    return allocateString(chars, length, hash);
 }
 
 /* Copy a string to heap */
 ObjString* copyString(const char* chars, int length) {
+    uint32_t hash = hashString(chars, length);
+    // If a string is already in the list of interned strings, instead of copying it we just return a reference.
+    // Interning all strings allow the VM to take for granted that any two strings at different addresses have different contents.
+    ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
+    if (interned != NULL) return interned;
+
     char* heapChars = ALLOCATE(char, length + 1);
     // Copy string from the lexeme (in the monolithic source string)
     memcpy(heapChars, chars, length);
     // Terminate string to facilitate conversion to c string
     heapChars[length] = '\0';
-    return allocateString(heapChars, length);
+    return allocateString(heapChars, length, hash);
 }
 
 void printObject(Value value) {
