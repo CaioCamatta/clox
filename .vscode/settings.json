@@ -26,7 +26,10 @@
         "common.h": "c",
         "string.h": "c",
         "scanner.h": "c",
-        "debug.h": "c"
+        "debug.h": "c",
+        "__locale": "c",
+        "__threading_support": "c",
+        "cmath": "c"
     },
     "editor.formatOnSave": true
 }

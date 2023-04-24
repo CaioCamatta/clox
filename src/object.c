@@ -34,7 +34,7 @@ static ObjString* allocateString(char* chars, int length,
     string->chars = chars;
     string->hash = hash;
     // Intern every string we create
-    tableSet(&vm.strings, string, NIL_VAL);
+    tableSet(&vm.strings, OBJ_VAL(string), NIL_VAL);
     return string;
 }
 
