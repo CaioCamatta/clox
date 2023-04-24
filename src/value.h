@@ -1,6 +1,9 @@
 #ifndef clox_value_h
 #define clox_value_h
 
+#include <limits.h>
+#include <math.h>
+
 #include "common.h"
 
 typedef struct Obj Obj;
@@ -12,6 +15,7 @@ typedef enum {
     VAL_NIL,
     VAL_NUMBER,
     VAL_OBJ,  // any value whose state lives on the heap
+    VAL_EMPTY
 } ValueType;
 
 // Values are doubles that OP_CONSTANTS refer to (via an index).
@@ -29,6 +33,7 @@ typedef struct {
 #define IS_NIL(value) ((value).type == VAL_NIL)
 #define IS_NUMBER(value) ((value).type == VAL_NUMBER)
 #define IS_OBJ(value) ((value).type == VAL_OBJ)
+#define IS_EMPTY(value) ((value).type == VAL_EMPTY)
 
 // Unpack a value and get the C value back out.
 // 'value' needs to be of the correct type! Use the IS_ macros to check.
@@ -42,6 +47,7 @@ typedef struct {
 #define NIL_VAL ((Value){VAL_NIL, {.number = 0}})
 #define NUMBER_VAL(value) ((Value){VAL_NUMBER, {.number = value}})
 #define OBJ_VAL(object) ((Value){VAL_OBJ, {.obj = (Obj*)object}})
+#define EMPTY_VAL ((Value){VAL_EMPTY, {.number = 0}})
 
 // Value array is similar to the JVM's constant pool
 typedef struct {
@@ -55,5 +61,6 @@ void initValueArray(ValueArray* array);
 void writeValueArray(ValueArray* array, Value value);
 void freeValueArray(ValueArray* array);
 void printValue(Value value);
+uint32_t hashValue(Value value);
 
 #endif

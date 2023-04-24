@@ -21,8 +21,8 @@ void freeTable(Table* table) {
 }
 
 /* Take a key and an array of "buckets" (entries) and find which bucket the key belongs to. Returns a pointer to the bucket. */
-static Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
-    uint32_t index = key->hash % capacity;
+static Entry* findEntry(Entry* entries, int capacity, Value key) {
+    uint32_t index = hashValue(key) % capacity;
 
     Entry* tombstone = NULL;
 
@@ -31,7 +31,7 @@ static Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
     for (;;) {
         Entry* entry = &entries[index];
 
-        if (entry->key == NULL) {
+        if (IS_EMPTY(entry->key)) {
             if (IS_NIL(entry->value)) {
                 // Empty entry
                 // If we've passed a tombstone while looking for the (emptry) entry, we return that bucket instead of the later empty one.
@@ -42,7 +42,7 @@ static Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
                 // Save its location and continue loop.
                 if (tombstone == NULL) tombstone = entry;
             }
-        } else if (entry->key == key) {
+        } else if (valuesEqual(entry->key, key)) {
             // We found the key
             return entry;
         }
@@ -52,11 +52,11 @@ static Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
 }
 
 /* Given a table and a key, copy value to output parameter 'value'. Returns true if value exists and was copied, and false if it does not find the key.  */
-bool tableGet(Table* table, ObjString* key, Value* value) {
+bool tableGet(Table* table, Value key, Value* value) {
     if (table->count == 0) return false;
 
     Entry* entry = findEntry(table->entries, table->capacity, key);
-    if (entry->key == NULL) return false;
+    if (IS_EMPTY(entry->key)) return false;
 
     *value = entry->value;
     return true;
@@ -66,7 +66,7 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
 static void adjustCapacity(Table* table, int capacity) {
     Entry* entries = ALLOCATE(Entry, capacity);
     for (int i = 0; i < capacity; i++) {
-        entries[i].key = NULL;
+        entries[i].key = EMPTY_VAL;
         entries[i].value = NIL_VAL;
     }
 
@@ -74,7 +74,7 @@ static void adjustCapacity(Table* table, int capacity) {
     table->count = 0;
     for (int i = 0; i < table->capacity; i++) {
         Entry* entry = &table->entries[i];
-        if (entry->key == NULL) continue;
+        if (IS_EMPTY(entry->key)) continue;
 
         Entry* dest = findEntry(entries, capacity, entry->key);
         dest->key = entry->key;
@@ -89,7 +89,7 @@ static void adjustCapacity(Table* table, int capacity) {
 }
 
 /* Add given key-value pair to the given hash table. If an entry is present, the new value will overwrite the old value. Returns true if a new entry was added. */
-bool tableSet(Table* table, ObjString* key, Value value) {
+bool tableSet(Table* table, Value key, Value value) {
     // Grow the array if it becomes at least TABLE_MAX_LOAD % full (75% full).
     if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
         int capacity = GROW_CAPACITY(table->capacity);
@@ -97,7 +97,7 @@ bool tableSet(Table* table, ObjString* key, Value value) {
     }
     // entry is the "bucket"
     Entry* entry = findEntry(table->entries, table->capacity, key);
-    bool isNewKey = entry->key == NULL;
+    bool isNewKey = IS_EMPTY(entry->key);
     // Only add count if we are not replacing a tombstonel
     if (isNewKey && IS_NIL(entry->value)) table->count++;
 
@@ -107,15 +107,15 @@ bool tableSet(Table* table, ObjString* key, Value value) {
 }
 
 /* Delete an entry in a hash table. Under the hood, this funtion places a tombstone. Returns true if the entry was delete, and false if the entry was not found. */
-bool tableDelete(Table* table, ObjString* key) {
+bool tableDelete(Table* table, Value key) {
     if (table->count == 0) return false;
 
     // Find the entry.
     Entry* entry = findEntry(table->entries, table->capacity, key);
-    if (entry->key == NULL) return false;
+    if (IS_EMPTY(entry->key)) return false;
 
     // Place a tombstone in the entry.
-    entry->key = NULL;
+    entry->key = EMPTY_VAL;
     entry->value = BOOL_VAL(true);  // tombstone
     // note: we dont reduce count -- tombstones count towards the load factor.
     return true;
@@ -125,7 +125,7 @@ bool tableDelete(Table* table, ObjString* key) {
 void tableAddAll(Table* from, Table* to) {
     for (int i = 0; i < from->capacity; i++) {
         Entry* entry = &from->entries[i];
-        if (entry->key != NULL) {
+        if (!IS_EMPTY(entry->key)) {
             tableSet(to, entry->key, entry->value);
         }
     }
@@ -138,16 +138,19 @@ ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t
     uint32_t index = hash % table->capacity;
     for (;;) {
         Entry* entry = &table->entries[index];
-        if (entry->key == NULL) {
-            // Stop if we find an empty non-tombstone entry.
-            if (IS_NIL(entry->value)) return NULL;
-        } else if (entry->key->length == length &&
-                   entry->key->hash == hash &&
-                   memcmp(entry->key->chars, chars, length) == 0) {
-            // If the length, hash, and values are the same, we found it.
-            return entry->key;
-        }
+        // Stop if we find an empty non-tombstone entry.
+        if (IS_EMPTY(entry->key))
+            return NULL;
+        else if (IS_STRING(entry->key)) {
+            ObjString* str = AS_STRING(entry->key);
+            if (str->length == length &&
+                str->hash == hash &&
+                memcmp(str->chars, chars, length) == 0) {
+                // If the length, hash, and values are the same, we found it.
+                return str;
+            }
 
-        index = (index + 1) % table->capacity;
+            index = (index + 1) % table->capacity;
+        }
     }
 }
