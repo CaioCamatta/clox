@@ -5,25 +5,21 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "C Build & Debug File",
-      "type": "cppdbg",
+      "name": "Build & Debug Main",
+      "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/clox",
-      //   "args": ["test/chap17_compiling.clox"],
       "args": ["${input:testFile}"],
+      //   "args": ["test/chap17_compiling.clox"],
       //   "stopAtEntry": true,
       "cwd": "${workspaceFolder}",
-      "environment": [],
-      "MIMode": "gdb",
-      "setupCommands": [
-        {
-          "description": "Enable pretty-printing for gdb",
-          "text": "-enable-pretty-printing",
-          "ignoreFailures": true
-        }
-      ],
-      "preLaunchTask": "tasks",
-      "miDebuggerPath": "/usr/bin/gdb"
+    },
+    {
+      "name": "Debug Table Benchmark",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/test/benchmark/table_benchmark",
+      "cwd": "${workspaceFolder}",
     }
   ],
   "inputs": [
