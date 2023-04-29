@@ -26,7 +26,13 @@
         "common.h": "c",
         "string.h": "c",
         "scanner.h": "c",
-        "debug.h": "c"
+        "debug.h": "c",
+        "table.h": "c",
+        "object.h": "c",
+        "atomic": "c",
+        "bitset": "c",
+        "memory.h": "c",
+        "__string": "c"
     },
     "editor.formatOnSave": true
 }

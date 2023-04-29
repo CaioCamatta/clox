@@ -4,9 +4,18 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "tasks",
+      "label": "Make debug program",
       "type": "shell",
       "command": "make debug",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Make debug table benchmark",
+      "type": "shell",
+      "command": "cd ./test/benchmark && make table_benchmark",
       "group": {
         "kind": "build",
         "isDefault": true

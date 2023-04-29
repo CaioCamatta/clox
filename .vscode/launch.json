@@ -13,6 +13,7 @@
       //   "args": ["test/chap17_compiling.clox"],
       //   "stopAtEntry": true,
       "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Make debug program",
     },
     {
       "name": "Debug Table Benchmark",
@@ -20,6 +21,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/test/benchmark/table_benchmark",
       "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Make debug table benchmark",
     }
   ],
   "inputs": [
