@@ -32,7 +32,7 @@ typedef enum {
 } Precedence;
 
 // ParseFn is a function type that takes no args and returns nothing.
-typedef void (*ParseFn)();
+typedef void (*ParseFn)(bool canAssign);
 
 typedef struct {
     ParseFn prefix;
@@ -100,6 +100,18 @@ static void consume(TokenType type, const char* message) {
     errorAtCurrent(message);
 }
 
+/* Check if current token is of a given type. */
+static bool check(TokenType type) {
+    return parser.current.type == type;
+}
+
+/* Consume current token if it's of a given type. Returns true if a token was consumed and false otherwise. */
+static bool match(TokenType type) {
+    if (!check(type)) return false;
+    advance();
+    return true;
+}
+
 /* Write given byte (opcode or operand) and record line information. */
 static void emitByte(uint8_t byte) {
     writeChunk(currentChunk(), byte, parser.previous.line);
@@ -140,12 +152,32 @@ static void endCompiler() {
 }
 
 static void expression();
+static void statement();
+static void declaration();
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precendence);
 
+/* Add token's lexeme to the Chunk's constant table. */
+static uint8_t identifierConstant(Token* name) {
+    return makeConstant(OBJ_VAL(copyString(name->start,
+                                           name->length)));
+}
+
+/* Consume identifier, put it in constant table, return constant index. */
+static uint8_t parseVariable(const char* errorMessage) {
+    consume(TOKEN_IDENTIFIER, errorMessage);
+    return identifierConstant(&parser.previous);
+}
+
+/* Output bytecode instruction that defines the new variable and stores its initial value.
+the instruction’s operand is the index of the variable’s name in the Chunk's constant table. */
+static void defineVariable(uint8_t global) {
+    emitBytes(OP_DEFINE_GLOBAL, global);
+}
+
 /* Binary operator. Left associative.
 How it works: Push left and right onto stack, then operation. The VM will execute left, right, then pop both, compute, and push result. */
-static void binary() {
+static void binary(bool canAssign) {
     // Operator has already been consumed here
     TokenType operatorType = parser.previous.type;
     ParseRule* rule = getRule(operatorType);
@@ -192,7 +224,7 @@ static void binary() {
 }
 
 /* Push literals onto the stack */
-static void literal() {
+static void literal(bool canAssign) {
     switch (parser.previous.type) {
         case TOKEN_FALSE:
             emitByte(OP_FALSE);
@@ -209,25 +241,45 @@ static void literal() {
 }
 
 /* Prefix expression that starts with '(' */
-static void grouping() {
+static void grouping(bool canAssign) {
     // Assume initial '(' has already been consumed
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void number() {
+static void number(bool canAssign) {
     // Assume the token for the number literal has already been consumed
     double value = strtod(parser.previous.start, NULL);
     emitConstant(NUMBER_VAL(value));
 }
 
-static void string() {
+static void string(bool canAssign) {
     // trim quotes
     emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
                                     parser.previous.length - 2)));
 }
 
-static void unary() {
+/* Emit instruciton to load global variable. */
+static void namedVariable(Token name, bool canAssign) {
+    // Take the given identifier token, add lexeme to chunk's constant table as a string.
+    // We need to do this because global vars are referenced by name, and we don't want to put a whole string in the bytecode
+    uint8_t arg = identifierConstant(&name);
+
+    // if there's an '=' after the identifier, compile the assigned value
+    if (canAssign && match(TOKEN_EQUAL)) {
+        expression();
+        emitBytes(OP_SET_GLOBAL, arg);
+    } else {
+        // Instruction to load the global variale with that name
+        emitBytes(OP_GET_GLOBAL, arg);
+    }
+}
+
+static void variable(bool canAssign) {
+    namedVariable(parser.previous, canAssign);
+}
+
+static void unary(bool canAssign) {
     TokenType operatorType = parser.previous.type;
 
     // Compile operand
@@ -277,7 +329,7 @@ ParseRule rules[] = {
     [TOKEN_GREATER_EQUAL] = {NULL, binary, PREC_COMPARISON},
     [TOKEN_LESS] = {NULL, binary, PREC_COMPARISON},
     [TOKEN_LESS_EQUAL] = {NULL, binary, PREC_COMPARISON},
-    [TOKEN_IDENTIFIER] = {NULL, NULL, PREC_NONE},
+    [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
     [TOKEN_STRING] = {string, NULL, PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
     [TOKEN_AND] = {NULL, NULL, PREC_NONE},
@@ -312,14 +364,22 @@ static void parsePrecedence(Precedence precedence) {
         return;
     }
 
-    prefixRule();
+    // Only low precendence expressions can assign.
+    bool canAssign = precedence <= PREC_ASSIGNMENT;
+    // Effectively, the only time we allow an assignment is when parsing an assignment expression or top level expression.
+    prefixRule(canAssign);
 
     // Look for an infix parser as next token. If there is one, then the prefix expression already compiled might be an operand for it.
     // If current token's precendece is lower, dont consume it.
     while (precedence <= getRule(parser.current.type)->precedence) {
         advance();
         ParseFn infixRule = getRule(parser.previous.type)->infix;
-        infixRule();
+        infixRule(canAssign);
+    }
+
+    // Prevents errors for invalid expressions, e.g., 'a * b = c + d;'
+    if (canAssign && match(TOKEN_EQUAL)) {
+        error("Invalid assignment target.");
     }
 }
 
@@ -332,6 +392,80 @@ static void expression() {
     parsePrecedence(PREC_ASSIGNMENT);
 }
 
+static void varDeclaration() {
+    uint8_t global = parseVariable("Expect variable name.");
+
+    if (match(TOKEN_EQUAL)) {
+        expression();
+    } else {
+        // Basically desugar 'var a;' into 'var a = nil;'
+        emitByte(OP_NIL);
+    }
+    consume(TOKEN_SEMICOLON,
+            "Expect ';' after variable declaration.");
+
+    defineVariable(global);
+}
+
+/* An expression statement is simple an expression where a statement is expected.
+It's an expression followed by a semicolon, such as a function call, e.g., > eat(brunch); */
+static void expressionStatement() {
+    // Expressions have a stack effect of +1...
+    expression();
+    consume(TOKEN_SEMICOLON, "Expect ';' after expression");
+    // ... so we pop the value off the stack and forget it.
+    emitByte(OP_POP);
+}
+
+static void printStatement() {
+    expression();
+    consume(TOKEN_SEMICOLON, "Expect ';' after value.");
+    emitByte(OP_PRINT);
+}
+
+static void synchronize() {
+    parser.panicMode = false;
+
+    // Skip tokens until we find a statement boundary or a semicolon.
+    while (parser.current.type != TOKEN_EOF) {
+        if (parser.previous.type == TOKEN_SEMICOLON) return;
+        switch (parser.current.type) {
+            case TOKEN_CLASS:
+            case TOKEN_FUN:
+            case TOKEN_VAR:
+            case TOKEN_FOR:
+            case TOKEN_IF:
+            case TOKEN_WHILE:
+            case TOKEN_PRINT:
+            case TOKEN_RETURN:
+                return;
+
+            default:;  // Do nothing.
+        }
+        advance();
+    }
+}
+
+/* Declarations is one of the two types of statements supported by Lox. They bind a new name to a value. */
+static void declaration() {
+    if (match(TOKEN_VAR)) {
+        varDeclaration();
+    } else {
+        statement();
+    }
+
+    // If we hit a compile error whiler parsing the previous statement, enter panic.
+    if (parser.panicMode) synchronize();
+}
+
+static void statement() {
+    if (match(TOKEN_PRINT)) {
+        printStatement();
+    } else {
+        expressionStatement();
+    }
+}
+
 /* Read char* source and write the code to chunk. */
 bool compile(const char* source, Chunk* chunk) {
     initScanner(source);
@@ -341,8 +475,11 @@ bool compile(const char* source, Chunk* chunk) {
     parser.panicMode = false;
 
     advance();
-    expression();
-    consume(TOKEN_EOF, "Expect end of expression.");
+
+    while (!match(TOKEN_EOF)) {
+        declaration();
+    }
+
     endCompiler();
     return !parser.hadError;
 }

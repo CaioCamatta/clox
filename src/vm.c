@@ -37,11 +37,13 @@ static void runtimeError(const char* format, ...) {
 void initVM() {
     resetStack();
     vm.objects = NULL;
+    initTable(&vm.globals);
     initTable(&vm.strings);
 }
 
 // Once the program is done, free all objects
 void freeVM() {
+    freeTable(&vm.globals);
     freeTable(&vm.strings);
     freeObjects();
 }
@@ -90,6 +92,7 @@ static InterpretResult run() {
 
 // Read next byte from bytecode, treat resulting number as an index, use the index to lookup the corresponding Value in the chunks constant table
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 
 #define BINARY_OP(valueType, op)                          \
     do {                                                  \
@@ -133,6 +136,42 @@ static InterpretResult run() {
             case OP_FALSE:
                 push(BOOL_VAL(false));
                 break;
+            case OP_POP:
+                // Pop top of the stack and forget it.
+                pop();
+                break;
+            case OP_GET_GLOBAL: {
+                // Pull the constant table index from the instructions operand and read the string
+                ObjString* name = READ_STRING();
+                Value value;
+                if (!tableGet(&vm.globals, name, &value)) {
+                    runtimeError("Undefined variable '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(value);
+                break;
+            }
+            case OP_DEFINE_GLOBAL: {
+                // Get name from constant table
+                ObjString* name = READ_STRING();
+                // Store value from top of the stack in a hash table w/ name as key
+                tableSet(&vm.globals, name, peek(0));
+                // Pop after we add in case a GC event starts in the middle of adding to the table
+                pop();
+                break;
+            }
+            case OP_SET_GLOBAL: {
+                ObjString* name = READ_STRING();
+                // If the key doesn't already exist, thats an error (e.g. 'dog.weight = ...'). There's no implicit variable declaration in lox.
+                if (tableSet(&vm.globals, name, peek(0))) {
+                    // If tableset returns true, it added the value regardless
+                    // Delete the zombie value from table
+                    tableDelete(&vm.globals, name);
+                    runtimeError("Undefined variable '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
             case OP_EQUAL: {
                 Value b = pop();
                 Value a = pop();
@@ -180,9 +219,13 @@ static InterpretResult run() {
                 }
                 push(NUMBER_VAL(-AS_NUMBER(pop())));
                 break;
-            case OP_RETURN: {
+            case OP_PRINT: {
                 printValue(pop());
                 printf("\n");
+                break;
+            }
+            case OP_RETURN: {
+                // Exit interpreter.
                 return INTERPRET_OK;
             }
         }
@@ -190,6 +233,7 @@ static InterpretResult run() {
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
 #undef BINARY_OP
 }
 
