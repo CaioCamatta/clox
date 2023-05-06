@@ -89,11 +89,13 @@ static void skipWhitespace() {
                 break;
             case '/':
                 if (peekNext() == '/') {
-                    while (peek() != '\n' && isAtEnd()) advance();
+                    // A comment goes until the end of the line.
+                    while (peek() != '\n' && !isAtEnd()) advance();
                 } else {
                     // don't consume first slash if its not a comment
                     return;
                 }
+                break;
             default:
                 return;
         }
