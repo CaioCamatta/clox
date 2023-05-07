@@ -27,7 +27,12 @@
         "string.h": "c",
         "scanner.h": "c",
         "debug.h": "c",
-        "object.h": "c"
+        "object.h": "c",
+        "__config": "c",
+        "cmath": "c",
+        "complex": "c",
+        "functional": "c",
+        "locale": "c"
     },
     "editor.formatOnSave": true
 }
