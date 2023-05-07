@@ -42,6 +42,7 @@ typedef struct {
 
 Parser parser;
 Chunk* compilingChunk;
+Table stringConstants;
 
 static Chunk* currentChunk() {
     return compilingChunk;
@@ -159,8 +160,19 @@ static void parsePrecedence(Precedence precendence);
 
 /* Add token's lexeme to the Chunk's constant table. */
 static uint8_t identifierConstant(Token* name) {
-    return makeConstant(OBJ_VAL(copyString(name->start,
-                                           name->length)));
+    ObjString* str = copyString(name->start,
+                                name->length);
+
+    // If string is already in the chunk's constants, don't add it again.
+    Value indexVal;
+    if (tableGet(&stringConstants, str, &indexVal)) {
+        return AS_NUMBER(indexVal);
+    }
+
+    // Otherwise, add to constant table.
+    uint8_t index = makeConstant(OBJ_VAL(str));
+    tableSet(&stringConstants, str, NUMBER_VAL((double)index));
+    return index;
 }
 
 /* Consume identifier, put it in constant table, return constant index. */
@@ -471,6 +483,8 @@ bool compile(const char* source, Chunk* chunk) {
     initScanner(source);
     compilingChunk = chunk;
 
+    initTable(&stringConstants);
+
     parser.hadError = false;
     parser.panicMode = false;
 
@@ -481,5 +495,6 @@ bool compile(const char* source, Chunk* chunk) {
     }
 
     endCompiler();
+    freeTable(&stringConstants);
     return !parser.hadError;
 }
