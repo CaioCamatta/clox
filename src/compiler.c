@@ -40,7 +40,20 @@ typedef struct {
     Precedence precedence;
 } ParseRule;
 
+// Local variable
+typedef struct {
+    Token name;
+    int depth;  // the scope depth of the block where the local var was declared.
+} Local;
+
+typedef struct {
+    Local locals[UINT8_COUNT];  // locals in scope during compilation. Max 256 in scope at once.
+    int localCount;             // number of locals in scope
+    int scopeDepth;             // number of blocks surrounding current bit of code being compiled
+} Compiler;
+
 Parser parser;
+Compiler* current = NULL;
 Chunk* compilingChunk;
 
 static Chunk* currentChunk() {
@@ -140,6 +153,12 @@ static uint8_t makeConstant(Value value) {
 
 static void emitConstant(Value value) {
     emitBytes(OP_CONSTANT, makeConstant(value));
+}
+
+static void initCompiler(Compiler* compiler) {
+    compiler->localCount = 0;
+    compiler->scopeDepth = 0;
+    current = compiler;
 }
 
 static void endCompiler() {
@@ -469,6 +488,8 @@ static void statement() {
 /* Read char* source and write the code to chunk. */
 bool compile(const char* source, Chunk* chunk) {
     initScanner(source);
+    Compiler compiler;
+    initCompiler(&compiler);
     compilingChunk = chunk;
 
     parser.hadError = false;
