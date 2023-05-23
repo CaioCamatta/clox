@@ -140,6 +140,17 @@ static InterpretResult run() {
                 // Pop top of the stack and forget it.
                 pop();
                 break;
+            case OP_GET_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                push(vm.stack[slot]);
+                break;
+            }
+            case OP_SET_LOCAL: {
+                // Take the assigned value from top of stack and store it in the stack slot corresponding to the local variable
+                uint8_t slot = READ_BYTE();
+                vm.stack[slot] = peek(0);
+                break;
+            }
             case OP_GET_GLOBAL: {
                 // Pull the constant table index from the instructions operand and read the string
                 ObjString* name = READ_STRING();
