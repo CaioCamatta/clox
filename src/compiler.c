@@ -378,7 +378,7 @@ static void namedVariable(Token name, bool canAssign) {
     } else {
         // Take the given identifier token, add lexeme to chunk's constant table as a string.
         // We need to do this because global vars are referenced by name, and we don't want to put a whole string in the bytecode
-        uint8_t arg = identifierConstant(&name);
+        arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
     }
