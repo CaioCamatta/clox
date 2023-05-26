@@ -376,6 +376,7 @@ static void string(bool canAssign) {
 static void namedVariable(Token name, bool canAssign) {
     uint8_t getOp, setOp;
     int arg = resolveLocal(current, &name);
+    bool isGlobalConstant = false;
     if (arg != -1) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
@@ -385,12 +386,12 @@ static void namedVariable(Token name, bool canAssign) {
         arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
-    }
 
-    ObjString* nameStr = AS_STRING(OBJ_VAL(copyString(name.start,
-                                                      name.length)));
-    Value value;
-    bool isGlobalConstant = tableGet(&current->constGlobals, nameStr, &value);
+        ObjString* nameStr = AS_STRING(OBJ_VAL(copyString(name.start,
+                                                          name.length)));
+        Value value;
+        isGlobalConstant = tableGet(&current->constGlobals, nameStr, &value);
+    }
 
     // if there's an '=' after the identifier, compile the assigned value
     if (canAssign && match(TOKEN_EQUAL)) {
