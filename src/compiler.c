@@ -45,6 +45,7 @@ typedef struct {
 typedef struct {
     Token name;
     int depth;  // the scope depth of the block where the local var was declared.
+    bool isConst;
 } Local;
 
 typedef struct {
@@ -227,7 +228,7 @@ static int resolveLocal(Compiler* compiler, Token* name) {
 }
 
 /* Initialize next available Local in the compiler's array of local variables. */
-static void addLocal(Token name) {
+static void addLocal(Token name, bool isConst) {
     if (current->localCount == UINT8_COUNT) {
         error("Too many local variables in function.");
         return;
@@ -236,10 +237,11 @@ static void addLocal(Token name) {
     Local* local = &current->locals[current->localCount++];
     local->name = name;
     local->depth = -1;  // Sentinel value
+    local->isConst = isConst;
 }
 
 /* Record the existence of a variable, i.e. add it to the scope */
-static void declareVariable() {
+static void declareVariable(bool isConst) {
     // Not applicable to globals
     if (current->scopeDepth == 0) return;
 
@@ -256,14 +258,14 @@ static void declareVariable() {
         }
     }
 
-    addLocal(*name);
+    addLocal(*name, isConst);
 }
 
 /* Consume identifier, put it in constant table, return constant index. */
-static uint8_t parseVariable(const char* errorMessage) {
+static uint8_t parseVariable(const char* errorMessage, bool isConst) {
     consume(TOKEN_IDENTIFIER, errorMessage);
 
-    declareVariable();
+    declareVariable(isConst);
     // At runtime, locals aren't looked up by name
     if (current->scopeDepth > 0) return 0;
 
@@ -271,20 +273,17 @@ static uint8_t parseVariable(const char* errorMessage) {
 }
 
 /* Assign scope depth to variable, optionally mark it as final/constant. */
-static void markInitialized(bool constant) {
+static void markInitialized() {
     current->locals[current->localCount - 1].depth = current->scopeDepth;
-    if (constant) {
-        current->constLocals[current->localCount - 1] = 1;
-    }
 };
 
 /* Output bytecode instruction that defines the new variable and stores its initial value. Make variable available for use.
 
 The instruction’s operand is the index of the variable’s name in the Chunk's constant table. */
-static void defineVariable(uint8_t global, bool constant) {
+static void defineVariable(uint8_t global) {
     // Locals aren'tstored in the constants table
     if (current->scopeDepth > 0) {
-        markInitialized(constant);
+        markInitialized();
         return;
     }
 
@@ -397,7 +396,7 @@ static void namedVariable(Token name, bool canAssign) {
 
     // if there's an '=' after the identifier, compile the assigned value
     if (canAssign && match(TOKEN_EQUAL)) {
-        if ((setOp == OP_SET_LOCAL && current->constLocals[arg] == 1) || (setOp == OP_SET_GLOBAL && isGlobalConstant)) {
+        if ((setOp == OP_SET_LOCAL && current->locals[arg].isConst) || (setOp == OP_SET_GLOBAL && isGlobalConstant)) {
             error("Cannot reassign val.");
         }
         expression();
@@ -534,7 +533,7 @@ static void block() {
 
 /* Declare reassignable variable */
 static void varDeclaration() {
-    uint8_t global = parseVariable("Expect variable name.");
+    uint8_t global = parseVariable("Expect variable name.", false);
 
     if (match(TOKEN_EQUAL)) {
         expression();
@@ -545,18 +544,20 @@ static void varDeclaration() {
     consume(TOKEN_SEMICOLON,
             "Expect ';' after variable declaration.");
 
-    defineVariable(global, false);
+    defineVariable(global);
 }
 
 /* Declare single-assigment/constant/final variable */
 static void valDeclaration() {
-    uint8_t global = parseVariable("Expect variable name.");
+    uint8_t global = parseVariable("Expect variable name.", true);
 
-    // Mark as global
-    ObjString* name = copyString(parser.previous.start, parser.previous.length);
-    Value value = BOOL_VAL(true);
-    if (!tableSet(&current->constGlobals, name, value)) {
-        error("Error creating global.");
+    // Mark global as constant
+    if (current->scopeDepth == 0) {
+        ObjString* name = copyString(parser.previous.start, parser.previous.length);
+        Value value = BOOL_VAL(true);
+        if (!tableSet(&current->constGlobals, name, value)) {
+            error("Error creating global.");
+        }
     }
 
     if (match(TOKEN_EQUAL)) {
@@ -568,7 +569,7 @@ static void valDeclaration() {
     consume(TOKEN_SEMICOLON,
             "Expect ';' after variable declaration.");
 
-    defineVariable(global, true);
+    defineVariable(global);
 }
 
 /* An expression statement is simple an expression where a statement is expected.
