@@ -49,11 +49,10 @@ typedef struct {
 } Local;
 
 typedef struct {
-    Local locals[UINT8_COUNT];         // locals in scope during compilation. Max 256 in scope at once.
-    uint8_t constLocals[UINT8_COUNT];  // constant locals in scope during compilation. Max 256 in scope at once.
-    Table constGlobals;                // constant globals.
-    int localCount;                    // number of locals in scope
-    int scopeDepth;                    // number of blocks surrounding current bit of code being compiled
+    Local locals[UINT8_COUNT];  // locals in scope during compilation. Max 256 in scope at once.
+    Table constGlobals;         // constant globals.
+    int localCount;             // number of locals in scope
+    int scopeDepth;             // number of blocks surrounding current bit of code being compiled
 } Compiler;
 
 Parser parser;
@@ -162,7 +161,6 @@ static void emitConstant(Value value) {
 static void initCompiler(Compiler* compiler) {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
-    memset(compiler->constLocals, 0, sizeof(compiler->constLocals));
     initTable(&compiler->constGlobals);
     current = compiler;
 }
