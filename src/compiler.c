@@ -45,10 +45,12 @@ typedef struct {
 typedef struct {
     Token name;
     int depth;  // the scope depth of the block where the local var was declared.
+    bool isConst;
 } Local;
 
 typedef struct {
     Local locals[UINT8_COUNT];  // locals in scope during compilation. Max 256 in scope at once.
+    Table constGlobals;         // constant globals.
     int localCount;             // number of locals in scope
     int scopeDepth;             // number of blocks surrounding current bit of code being compiled
 } Compiler;
@@ -159,6 +161,7 @@ static void emitConstant(Value value) {
 static void initCompiler(Compiler* compiler) {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+    initTable(&compiler->constGlobals);
     current = compiler;
 }
 
@@ -223,7 +226,7 @@ static int resolveLocal(Compiler* compiler, Token* name) {
 }
 
 /* Initialize next available Local in the compiler's array of local variables. */
-static void addLocal(Token name) {
+static void addLocal(Token name, bool isConst) {
     if (current->localCount == UINT8_COUNT) {
         error("Too many local variables in function.");
         return;
@@ -232,10 +235,11 @@ static void addLocal(Token name) {
     Local* local = &current->locals[current->localCount++];
     local->name = name;
     local->depth = -1;  // Sentinel value
+    local->isConst = isConst;
 }
 
 /* Record the existence of a variable, i.e. add it to the scope */
-static void declareVariable() {
+static void declareVariable(bool isConst) {
     // Not applicable to globals
     if (current->scopeDepth == 0) return;
 
@@ -252,21 +256,21 @@ static void declareVariable() {
         }
     }
 
-    addLocal(*name);
+    addLocal(*name, isConst);
 }
 
 /* Consume identifier, put it in constant table, return constant index. */
-static uint8_t parseVariable(const char* errorMessage) {
+static uint8_t parseVariable(const char* errorMessage, bool isConst) {
     consume(TOKEN_IDENTIFIER, errorMessage);
 
-    declareVariable();
+    declareVariable(isConst);
     // At runtime, locals aren't looked up by name
     if (current->scopeDepth > 0) return 0;
 
     return identifierConstant(&parser.previous);
 }
 
-/* Assign scope depth to variable. */
+/* Assign scope depth to variable, optionally mark it as final/constant. */
 static void markInitialized() {
     current->locals[current->localCount - 1].depth = current->scopeDepth;
 };
@@ -368,10 +372,11 @@ static void string(bool canAssign) {
                                     parser.previous.length - 2)));
 }
 
-/* Emit instruciton to load global variable. */
+/* Emit instruciton to load variable. */
 static void namedVariable(Token name, bool canAssign) {
     uint8_t getOp, setOp;
     int arg = resolveLocal(current, &name);
+    bool isGlobalConstant = false;
     if (arg != -1) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
@@ -381,10 +386,18 @@ static void namedVariable(Token name, bool canAssign) {
         arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
         setOp = OP_SET_GLOBAL;
+
+        ObjString* nameStr = AS_STRING(OBJ_VAL(copyString(name.start,
+                                                          name.length)));
+        Value value;
+        isGlobalConstant = tableGet(&current->constGlobals, nameStr, &value);
     }
 
     // if there's an '=' after the identifier, compile the assigned value
     if (canAssign && match(TOKEN_EQUAL)) {
+        if ((setOp == OP_SET_LOCAL && current->locals[arg].isConst) || (setOp == OP_SET_GLOBAL && isGlobalConstant)) {
+            error("Cannot reassign val.");
+        }
         expression();
         emitBytes(setOp, (uint8_t)arg);
     } else {
@@ -517,8 +530,34 @@ static void block() {
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
+/* Declare reassignable variable */
 static void varDeclaration() {
-    uint8_t global = parseVariable("Expect variable name.");
+    uint8_t global = parseVariable("Expect variable name.", false);
+
+    if (match(TOKEN_EQUAL)) {
+        expression();
+    } else {
+        // Basically desugar 'var a;' into 'var a = nil;'
+        emitByte(OP_NIL);
+    }
+    consume(TOKEN_SEMICOLON,
+            "Expect ';' after variable declaration.");
+
+    defineVariable(global);
+}
+
+/* Declare single-assigment/constant/final variable */
+static void valDeclaration() {
+    uint8_t global = parseVariable("Expect variable name.", true);
+
+    // Mark global as constant
+    if (current->scopeDepth == 0) {
+        ObjString* name = copyString(parser.previous.start, parser.previous.length);
+        Value value = BOOL_VAL(true);
+        if (!tableSet(&current->constGlobals, name, value)) {
+            error("Error creating global.");
+        }
+    }
 
     if (match(TOKEN_EQUAL)) {
         expression();
@@ -575,6 +614,8 @@ static void synchronize() {
 static void declaration() {
     if (match(TOKEN_VAR)) {
         varDeclaration();
+    } else if (match(TOKEN_VAL)) {
+        valDeclaration();
     } else {
         statement();
     }
