@@ -591,7 +591,7 @@ It's an expression followed by a semicolon, such as a function call, e.g., > eat
 static void expressionStatement() {
     // Expressions have a stack effect of +1...
     expression();
-    consume(TOKEN_SEMICOLON, "Expect ';' after expression");
+    consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
     // ... so we pop the value off the stack and forget it.
     emitByte(OP_POP);
 }

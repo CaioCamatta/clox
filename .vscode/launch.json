@@ -21,7 +21,7 @@
       "id": "testFile",
       "type": "promptString",
       "description": "Test .clox file to debug",
-      "default": "test/chap18_types.clox"
+      "default": "test/chap23_control.clox"
     }
   ]
 }
