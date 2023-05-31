@@ -53,6 +53,8 @@ typedef struct {
     int scopeDepth;             // number of blocks surrounding current bit of code being compiled
 } Compiler;
 
+int nearestLoopOffset = 0;
+
 Parser parser;
 Compiler* current = NULL;
 Chunk* compilingChunk;
@@ -153,6 +155,14 @@ static int emitJump(uint8_t instruction) {
     emitByte(instruction);
     emitByte(0xff);
     emitByte(0xff);
+    return currentChunk()->count - 2;
+}
+
+/* Emit instruction, write jump offset (two bytes). Return the offset of the emitted instruction in the chunk. */
+static int emitJumpWithBytes(uint8_t instruction, uint8_t leftByte, u_int8_t rightByte) {
+    emitByte(instruction);
+    emitByte(leftByte);
+    emitByte(rightByte);
     return currentChunk()->count - 2;
 }
 
@@ -508,6 +518,7 @@ ParseRule rules[] = {
     [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
     [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
     [TOKEN_FOR] = {NULL, NULL, PREC_NONE},
+    [TOKEN_CONTINUE] = {NULL, NULL, PREC_NONE},
     [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
     [TOKEN_IF] = {NULL, NULL, PREC_NONE},
     [TOKEN_NIL] = {literal, NULL, PREC_NONE},
@@ -596,8 +607,22 @@ static void expressionStatement() {
     emitByte(OP_POP);
 }
 
+/* Jump to the top of nearest loop. Throws compile-time error if not enclosed in a loop. */
+static void continueStatement() {
+    if (nearestLoopOffset == 0) {
+        error("Attempt to use 'continue' outside of a loop.");
+    }
+
+    emitLoop(nearestLoopOffset);
+
+    consume(TOKEN_SEMICOLON, "Expect ';' after continue statement.");
+}
+
 static void forStatement() {
     beginScope();
+
+    // Remember previous nearestLoopOffset for later 2
+    int prevNearestLoopOffset = nearestLoopOffset;
 
     // Initializer
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
@@ -610,6 +635,7 @@ static void forStatement() {
     }
 
     int loopStart = currentChunk()->count;
+    nearestLoopOffset = loopStart;
 
     // Condition clause
     int exitJump = -1;
@@ -632,6 +658,7 @@ static void forStatement() {
 
         emitLoop(loopStart);         // Go back to top of the for loop
         loopStart = incrementStart;  // future interations should jump back to increment
+        nearestLoopOffset = loopStart;
         patchJump(bodyJump);
     }
 
@@ -643,6 +670,7 @@ static void forStatement() {
         emitByte(OP_POP);  // Condition.
     }
 
+    nearestLoopOffset = prevNearestLoopOffset;
     endScope();
 }
 
@@ -729,6 +757,8 @@ static void statement() {
         ifStatement();
     } else if (match(TOKEN_WHILE)) {
         whileStatement();
+    } else if (match(TOKEN_CONTINUE)) {
+        continueStatement();
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
         block();
