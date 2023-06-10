@@ -8,15 +8,41 @@
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
+#include "math.h"
 #include "memory.h"
 #include "object.h"
 
 // TODO (optimization): explicitly make the VM obj a pointer and pass it around.
 VM vm;  // Single global VM object; not ideal, but good enough for starters.
 
-/* Native function to get clock time. */
-static Value clockNative(int argCount, Value* args) {
-    return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+/* Native function to get clock time.
+- If the native succeeded, return true and store the result in args[-1].
+- If the native fails, return false and store error message in args[-1].
+(args[-1] previously held the function itself.)
+*/
+static bool clockNative(int argCount, Value* args) {
+    args[-1] = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+    return true;
+}
+
+/* Native function to take square root.
+- If the native succeeded, return true and store the result in args[-1].
+- If the native fails, return false and store error message in args[-1].
+(args[-1] previously held the function itself.) */
+static bool sqrtNative(int argCount, Value* args) {
+    if (argCount != 1) {
+        args[-1] = OBJ_VAL(copyString("Expected 1 argument.", 20));
+        return false;
+    }
+
+    switch (args->type) {
+        case VAL_NUMBER:
+            args[-1] = NUMBER_VAL((double)sqrt(AS_NUMBER(*args)));
+            return true;
+        default:
+            args[-1] = OBJ_VAL(copyString("Expected argument of type 'number'.", 34));
+            return false;
+    }
 }
 
 static void resetStack() {
@@ -25,7 +51,7 @@ static void resetStack() {
 }
 
 /* Print a runtime error. Callers can pass a format string followed by arguments, just like 'printf()'. */
-static void runtimeError(const char* format, ...) {
+void runtimeError(const char* format, ...) {
     // Show error message
     va_list args;
     va_start(args, format);
@@ -66,6 +92,7 @@ void initVM() {
     initTable(&vm.globals);
     initTable(&vm.strings);
 
+    defineNative("sqrt", sqrtNative);
     defineNative("clock", clockNative);
 }
 
@@ -122,10 +149,13 @@ static bool callValue(Value callee, int argCount) {
             case OBJ_NATIVE: {
                 // Simply invoke the C function :). No CallFrames.
                 NativeFn native = AS_NATIVE(callee);
-                Value result = native(argCount, vm.stackTop - argCount);
-                vm.stackTop -= argCount + 1;
-                push(result);
-                return true;
+                if (native(argCount, vm.stackTop - argCount)) {
+                    vm.stackTop -= argCount;
+                    return true;
+                } else {
+                    vm.stackTop -= argCount;
+                    runtimeError(AS_CSTRING(vm.stackTop[-1]));
+                }
             }
             default:
                 break;  // Non-callable object type.

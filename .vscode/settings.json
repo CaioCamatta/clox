@@ -34,7 +34,15 @@
         "functional": "c",
         "locale": "c",
         "unordered_map": "c",
-        "ios": "c"
+        "ios": "c",
+        "__bit_reference": "c",
+        "__node_handle": "c",
+        "atomic": "c",
+        "bitset": "c",
+        "__memory": "c",
+        "optional": "c",
+        "system_error": "c",
+        "memory.h": "c"
     },
     "editor.formatOnSave": true
 }
