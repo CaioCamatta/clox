@@ -32,7 +32,9 @@
         "cmath": "c",
         "complex": "c",
         "functional": "c",
-        "locale": "c"
+        "locale": "c",
+        "unordered_map": "c",
+        "ios": "c"
     },
     "editor.formatOnSave": true
 }

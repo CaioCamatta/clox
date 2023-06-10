@@ -2,10 +2,18 @@
 #define clox_vm_h
 
 #include "chunk.h"
+#include "object.h"
 #include "table.h"
 #include "value.h"
 
-#define STACK_MAX 256
+#define FRAMES_MAX 64
+#define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
+
+typedef struct {
+    ObjFunction* function;
+    uint8_t* ip;   // Instruction pointer (aka program counter) that pointer to next instruction to be executed
+    Value* slots;  // where the function's locals begin
+} CallFrame;
 
 typedef enum {
     INTERPRET_OK,
@@ -14,8 +22,9 @@ typedef enum {
 } InterpretResult;
 
 typedef struct {
-    Chunk* chunk;
-    uint8_t* ip;             // Instruction pointer (aka program counter) that pointer to next instruction to be executed
+    CallFrame frames[FRAMES_MAX];
+    int frameCount;  // height of the CallFrame stack == number of ongoing function calls
+
     Value stack[STACK_MAX];  // Array is declared directly inline
     Value* stackTop;         // Use actual pointer instead of int index (faster dereferencing)
     Table globals;           // Global vars
