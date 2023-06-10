@@ -22,10 +22,11 @@ static Value clockNative(int argCount, Value* args) {
 
 /* Native function to take square root. */
 static Value sqrtNative(int argCount, Value* args) {
-    if (IS_NUMBER(*args)) {
-        return NUMBER_VAL((double)sqrt(AS_NUMBER(*args)));
-    } else {
-        runtimeError("Expected number as input.");
+    switch (args->type) {
+        case VAL_BOOL:
+            return NUMBER_VAL((double)sqrt(AS_BOOL(*args)));
+        default:
+            return NIL_VAL;
     }
     return NIL_VAL;
 }
