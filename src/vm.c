@@ -8,6 +8,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
+#include "math.h"
 #include "memory.h"
 #include "object.h"
 
@@ -19,13 +20,23 @@ static Value clockNative(int argCount, Value* args) {
     return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
 }
 
+/* Native function to take square root. */
+static Value sqrtNative(int argCount, Value* args) {
+    if (IS_NUMBER(*args)) {
+        return NUMBER_VAL((double)sqrt(AS_NUMBER(*args)));
+    } else {
+        runtimeError("Expected number as input.");
+    }
+    return NIL_VAL;
+}
+
 static void resetStack() {
     vm.stackTop = vm.stack;
     vm.frameCount = 0;
 }
 
 /* Print a runtime error. Callers can pass a format string followed by arguments, just like 'printf()'. */
-static void runtimeError(const char* format, ...) {
+void runtimeError(const char* format, ...) {
     // Show error message
     va_list args;
     va_start(args, format);
@@ -66,6 +77,7 @@ void initVM() {
     initTable(&vm.globals);
     initTable(&vm.strings);
 
+    defineNative("sqrt", sqrtNative);
     defineNative("clock", clockNative);
 }
 

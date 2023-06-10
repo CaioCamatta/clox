@@ -34,6 +34,7 @@ typedef struct {
 
 extern VM vm;
 
+void runtimeError(const char* format, ...);
 void initVM();
 void freeVM();
 InterpretResult interpret(const char* source);
