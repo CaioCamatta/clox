@@ -37,7 +37,7 @@ typedef struct {
 } ObjFunction;
 
 // Native functions need to be "their own thing" because they don't push a CallFrame when called.
-typedef Value (*NativeFn)(int argCount, Value* args);
+typedef bool (*NativeFn)(int argCount, Value* args);
 typedef struct {
     Obj obj;
     NativeFn function;
