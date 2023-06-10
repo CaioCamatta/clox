@@ -160,7 +160,11 @@ static InterpretResult run() {
     // Current CallFrame being run
     CallFrame* frame = &vm.frames[vm.frameCount - 1];
 
-    // IP as local variable to hint at the compiler to keep it in a register
+    /**
+     * We store the IP as a local variable and use "register" to hint at the compiler to keep it in a register.
+     * This is an optimization: accessing IP is one of the most frequent operations in the VM.
+     * We use this local ip variable while we're inside a CallFrame. When changing between CallFrames, we store the current 'ip' in 'frame->ip' and set 'ip' to be the new 'frame->ip'. */
+
     register uint8_t* ip = frame->ip;
 
 // Read the byte IP points at and advance IP.
