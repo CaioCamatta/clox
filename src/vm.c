@@ -160,12 +160,19 @@ static InterpretResult run() {
     // Current CallFrame being run
     CallFrame* frame = &vm.frames[vm.frameCount - 1];
 
+    /**
+     * We store the IP as a local variable and use "register" to hint at the compiler to keep it in a register.
+     * This is an optimization: accessing IP is one of the most frequent operations in the VM.
+     * We use this local ip variable while we're inside a CallFrame. When changing between CallFrames, we store the current 'ip' in 'frame->ip' and set 'ip' to be the new 'frame->ip'. */
+
+    register uint8_t* ip = frame->ip;
+
 // Read the byte IP points at and advance IP.
-#define READ_BYTE() (*frame->ip++)
+#define READ_BYTE() (*ip++)
 
 #define READ_SHORT() \
-    (frame->ip += 2, \
-     (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
+    (ip += 2,        \
+     (uint16_t)((ip[-2] << 8) | ip[-1]))
 
 // Read next byte from bytecode, treat resulting number as an index, use the index to lookup the corresponding Value in the chunks constant table
 #define READ_CONSTANT() \
@@ -194,7 +201,7 @@ static InterpretResult run() {
         printf("\n");
         // Pointer math; code is stored contiguously
         disassembleInstruction(&frame->function->chunk,
-                               (int)(frame->ip - frame->function->chunk.code));
+                               (int)(ip - frame->function->chunk.code));
 #endif
 
         uint8_t instruction;
@@ -235,6 +242,7 @@ static InterpretResult run() {
                 ObjString* name = READ_STRING();
                 Value value;
                 if (!tableGet(&vm.globals, name, &value)) {
+                    frame->ip = ip;  // Store IP before runtime error to point to correct failing instruction
                     runtimeError("Undefined variable '%s'.", name->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -257,6 +265,7 @@ static InterpretResult run() {
                     // If tableset returns true, it added the value regardless
                     // Delete the zombie value from table
                     tableDelete(&vm.globals, name);
+                    frame->ip = ip;
                     runtimeError("Undefined variable '%s'.", name->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -283,6 +292,7 @@ static InterpretResult run() {
                     double a = AS_NUMBER(pop());
                     push(NUMBER_VAL(a + b));
                 } else {
+                    frame->ip = ip;
                     // TODO(feature) allow string + number
                     runtimeError(
                         "Operands must be two numbers or two strings.");
@@ -304,6 +314,7 @@ static InterpretResult run() {
                 break;
             case OP_NEGATE:
                 if (!IS_NUMBER(peek(0))) {
+                    frame->ip = ip;
                     runtimeError("Operand must be a number.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -316,26 +327,28 @@ static InterpretResult run() {
             }
             case OP_JUMP: {
                 uint16_t offset = READ_SHORT();
-                frame->ip += offset;
+                ip += offset;
                 break;
             }
             case OP_JUMP_IF_FALSE: {
                 uint16_t offset = READ_SHORT();
-                if (isFalsey(peek(0))) frame->ip += offset;
+                if (isFalsey(peek(0))) ip += offset;
                 break;
             }
             case OP_LOOP: {
                 uint16_t offset = READ_SHORT();
-                frame->ip -= offset;
+                ip -= offset;
                 break;
             }
             case OP_CALL: {
                 int argCount = READ_BYTE();
+                frame->ip = ip;  // Store ip so we can continue from there when we return
                 if (!callValue(peek(argCount), argCount)) {
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 // callValue puts a new CallFrame on the frames stack
                 frame = &vm.frames[vm.frameCount - 1];
+                ip = frame->ip;
                 break;
             }
             case OP_RETURN: {
@@ -351,6 +364,7 @@ static InterpretResult run() {
                 vm.stackTop = frame->slots;
                 push(result);
                 frame = &vm.frames[vm.frameCount - 1];
+                ip = frame->ip;
                 break;
             }
         }

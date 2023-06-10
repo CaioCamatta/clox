@@ -1,0 +1,10 @@
+fun b() {
+  print "b" + 1;
+}
+
+fun a() {
+  print "a";
+  b();
+}
+
+a();
