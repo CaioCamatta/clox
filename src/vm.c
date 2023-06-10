@@ -30,6 +30,11 @@ static bool clockNative(int argCount, Value* args) {
 - If the native fails, return false and store error message in args[-1].
 (args[-1] previously held the function itself.) */
 static bool sqrtNative(int argCount, Value* args) {
+    if (argCount != 1) {
+        args[-1] = OBJ_VAL(copyString("Expected 1 argument.", 20));
+        return false;
+    }
+
     switch (args->type) {
         case VAL_NUMBER:
             args[-1] = NUMBER_VAL((double)sqrt(AS_NUMBER(*args)));
