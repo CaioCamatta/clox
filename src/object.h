@@ -24,6 +24,7 @@ typedef enum {
     OBJ_FUNCTION,
     OBJ_NATIVE,
     OBJ_STRING,
+    OBJ_UPVALUE
 } ObjType;
 
 struct Obj {
@@ -56,10 +57,19 @@ struct ObjString {
     uint32_t hash;
 };
 
+typedef struct ObjUpvalue {
+    Obj obj;
+    Value* location;
+    Value closed;             // If this opvalue is closed (i.e. the variable it points to is no longer on the stack), we use this 'closed' Value to keep the variable in the heap.
+    struct ObjUpvalue* next;  // intrusive, sorted linked list to keep track of all upvalues. The "next" ObjUpvalue is the one that references a local variable farther down (or left) the stack.
+} ObjUpvalue;
+
 // A closure wraps every ObjFunction and captures runtime state.
 typedef struct {
     Obj obj;
     ObjFunction* function;
+    ObjUpvalue** upvalues;
+    int upvalueCount;
 } ObjClosure;
 
 ObjClosure* newClosure(ObjFunction* function);
@@ -67,6 +77,7 @@ ObjFunction* newFunction();
 ObjNative* newNative(NativeFn function);
 ObjString* takeString(char* chars, int length);
 ObjString* copyString(const char* chars, int length);
+ObjUpvalue* newUpvalue(Value* slot);
 void printObject(Value value);
 
 // We use a function outside of the macro to provent expanding `value` twice

@@ -25,11 +25,12 @@ typedef struct {
     CallFrame frames[FRAMES_MAX];
     int frameCount;  // height of the CallFrame stack == number of ongoing function calls
 
-    Value stack[STACK_MAX];  // Array is declared directly inline
-    Value* stackTop;         // Use actual pointer instead of int index (faster dereferencing)
-    Table globals;           // Global vars
-    Table strings;           // Stores ("interns") every string that's been created. Used for string deduplication.
-    Obj* objects;            // Pointer to head of objects linked list
+    Value stack[STACK_MAX];    // Array is declared directly inline
+    Value* stackTop;           // Use actual pointer instead of int index (faster dereferencing)
+    Table globals;             // Global vars
+    Table strings;             // Stores ("interns") every string that's been created. Used for string deduplication.
+    ObjUpvalue* openUpvalues;  // All open upvalues (i.e. not hoisted / still on the stack)
+    Obj* objects;              // Pointer to head of objects linked list
 } VM;
 
 extern VM vm;

@@ -44,7 +44,8 @@ typedef struct {
 // Local variable
 typedef struct {
     Token name;
-    int depth;  // the scope depth of the block where the local var was declared.
+    int depth;        // the scope depth of the block where the local var was declared.
+    bool isCaptured;  // is the Local captured by any later nested function declaration?
 } Local;
 
 /* Upvalues keep track of closed-over identifiers that the compiler has resolved in the body of each function */
@@ -223,6 +224,7 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
     // Claim the first `locals` slot for the VM's internal use
     Local* local = &current->locals[current->localCount++];
     local->depth = 0;
+    local->isCaptured = false;
     local->name.start = "";  // Can't be referred to by the user
     local->name.length = 0;
 }
@@ -249,8 +251,13 @@ static void endScope() {
 
     // Delete locals
     while (current->localCount > 0 && current->locals[current->localCount - 1].depth > current->scopeDepth) {
-        // TODO(optimization): Add OP_POPN and use it here
-        emitByte(OP_POP);
+        // At the end of the block scope, tell the compiler whether the Local needs to be hoisted onto the heap.
+        if (current->locals[current->localCount - 1].isCaptured) {
+            emitByte(OP_CLOSE_UPVALUE);
+        } else {  // If a variable isn't used by a closure, just pop it!
+            // TODO(optimization): Add OP_POPN and use it here
+            emitByte(OP_POP);
+        }
         current->localCount--;
     }
 }
@@ -319,6 +326,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 
     int local = resolveLocal(compiler->enclosing, name);
     if (local != -1) {
+        compiler->enclosing->locals[local].isCaptured = true;
         return addUpvalue(compiler, (uint8_t)local, true);
     }
 
@@ -343,6 +351,7 @@ static void addLocal(Token name) {
     Local* local = &current->locals[current->localCount++];
     local->name = name;
     local->depth = -1;  // Sentinel value
+    local->isCaptured = false;
 }
 
 /* Record the existence of a variable, i.e. add it to the scope */
