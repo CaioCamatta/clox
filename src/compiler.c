@@ -533,7 +533,7 @@ static void string(bool canAssign) {
                                     parser.previous.length - 2)));
 }
 
-/* Emit instruciton to load global variable. */
+/* Emit instruciton to load variable. */
 static void namedVariable(Token name, bool canAssign) {
     uint8_t getOp, setOp;
     int arg = resolveLocal(current, &name);
