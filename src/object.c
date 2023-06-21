@@ -24,10 +24,27 @@ static Obj* allocateObject(size_t size, ObjType type) {
     return object;
 }
 
+/* Create new cluster that wraps a function. */
+ObjClosure* newClosure(ObjFunction* function) {
+    // Allocate array of upvalues with correct size. The size was determined at compile time.
+    ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*,
+                                     function->upvalueCount);
+    for (int i = 0; i < function->upvalueCount; i++) {
+        upvalues[i] = NULL;
+    }
+
+    ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
+    closure->function = function;
+    closure->upvalues = upvalues;
+    closure->upvalueCount = function->upvalueCount;
+    return closure;
+}
+
 /* Create new Lox function */
 ObjFunction* newFunction() {
     ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
     function->arity = 0;
+    function->upvalueCount = 0;
     initChunk(&function->chunk);
     function->name = NULL;
     return function;
@@ -95,6 +112,15 @@ ObjString* copyString(const char* chars, int length) {
     return allocateString(heapChars, length, hash);
 }
 
+/* Takes address of the slot where the closed-over variable lives and creates a runtime upvalue object. */
+ObjUpvalue* newUpvalue(Value* slot) {
+    ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
+    upvalue->closed = NIL_VAL;
+    upvalue->location = slot;
+    upvalue->next = NULL;
+    return upvalue;
+}
+
 /* Print the name of a function */
 static void printFunction(ObjFunction* function) {
     if (function->name == NULL) {
@@ -106,6 +132,9 @@ static void printFunction(ObjFunction* function) {
 
 void printObject(Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_CLOSURE:
+            printFunction(AS_CLOSURE(value)->function);
+            break;
         case OBJ_FUNCTION:
             printFunction(AS_FUNCTION(value));
             break;
@@ -114,6 +143,9 @@ void printObject(Value value) {
             break;
         case OBJ_STRING:
             printf("%s", AS_CSTRING(value));
+            break;
+        case OBJ_UPVALUE:
+            printf("upvalue");
             break;
     }
 }
