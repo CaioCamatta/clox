@@ -29,6 +29,7 @@ typedef enum {
 
 struct Obj {
     ObjType type;
+    bool isMarked;
     struct Obj* next;  // Intrusive pointer to next object for GC
 };
 

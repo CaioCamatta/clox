@@ -30,7 +30,13 @@ typedef struct {
     Table globals;             // Global vars
     Table strings;             // Stores ("interns") every string that's been created. Used for string deduplication.
     ObjUpvalue* openUpvalues;  // All open upvalues (i.e. not hoisted / still on the stack)
-    Obj* objects;              // Pointer to head of objects linked list
+
+    size_t bytesAllocated;
+    size_t nextGC;
+    Obj* objects;  // Pointer to head of objects linked list
+    int grayCount;
+    int grayCapacity;
+    Obj** grayStack;
 } VM;
 
 extern VM vm;
