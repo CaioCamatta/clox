@@ -4,12 +4,26 @@
 
 #include "vm.h"
 
+#ifdef DEBUG_LOG_GC
+#include <stdio.h>
+
+#include "debug.h"
+#endif
+
 /**
  * Reallocate an array, creating/growing/shrinking/freeing space if needed
  *
  * Note: All we need to update a memory block is the first byte. The memory allocator maintains additional bookkeeping info for each block in the heap (incl size).
  */
 void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
+    // GC itself calls reallocate, so don't trigger when freeing memory .
+    if (newSize > oldSize) {
+        // If defined, trigger GC at every moment for testing
+#ifdef DEBUG_STRESS_GC
+        collectGarbage();
+#endif
+    }
+
     // If we empty the array, we deallocate
     if (newSize == 0) {
         free(pointer);
@@ -25,6 +39,10 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 
 // Free an object
 static void freeObject(Obj* object) {
+#ifdef DEBUG_LOG_GC
+    printf("%p free type %d\n", (void*)object, object->type);
+#endif
+
     switch (object->type) {
         case OBJ_CLOSURE: {
             ObjClosure* closure = (ObjClosure*)object;
@@ -55,6 +73,17 @@ static void freeObject(Obj* object) {
         default:
             break;
     }
+}
+
+/* Mark-and-sweep garbage collection. */
+void collectGarbage() {
+#ifdef DEBUG_LOG_GC
+    printf("-- gc begin\n");
+#endif
+
+#ifdef DEBUG_LOG_GC
+    printf("-- gc end\n");
+#endif
 }
 
 // Free all objects in the VM
