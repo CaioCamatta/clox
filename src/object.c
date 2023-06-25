@@ -16,11 +16,17 @@
 static Obj* allocateObject(size_t size, ObjType type) {
     Obj* object = (Obj*)reallocate(NULL, 0, size);
     object->type = type;
+    object->isMarked = false;
 
     // every time we allocate an obj, update the global lsit of objects.
     // this is useful for GC
     object->next = vm.objects;
     vm.objects = object;
+
+#ifdef DEBUG_LOG_GC
+    printf("%p allocate %zu for %d\n", (void*)object, size, type);
+#endif
+
     return object;
 }
 
@@ -66,8 +72,14 @@ static ObjString* allocateString(char* chars, int length,
     string->length = length;
     string->chars = chars;
     string->hash = hash;
+
+    // Protect from GC. Here, the string is brand new, so it's not pointed to by anyone.
+    push(OBJ_VAL(string));
+
     // Intern every string we create
     tableSet(&vm.strings, string, NIL_VAL);
+    pop();
+
     return string;
 }
 

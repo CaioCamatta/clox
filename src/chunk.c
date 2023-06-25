@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "memory.h"
+#include "vm.h"
 
 /* Initialize empty dynamic array */
 void initChunk(Chunk* chunk) {
@@ -31,7 +32,9 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
 
 /*  Add a constant to the chunk, return its index */
 int addConstant(Chunk* chunk, Value value) {
+    push(value);  // Protect from GC
     writeValueArray(&chunk->constants, value);
+    pop();
     return chunk->constants.count - 1;
 }
 
