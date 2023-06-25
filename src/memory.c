@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "compiler.h"
+#include "object.h"
 #include "vm.h"
 
 #ifdef DEBUG_LOG_GC
@@ -127,7 +128,7 @@ static void blackenObject(Obj* object) {
 // Free an object
 static void freeObject(Obj* object) {
 #ifdef DEBUG_LOG_GC
-    printf("%p free type %d\n", (void*)object, object->type);
+    printf("%p free %s\n", (void*)object, objTypeAsString[object->type]);
 #endif
 
     switch (object->type) {

@@ -27,6 +27,15 @@ typedef enum {
     OBJ_UPVALUE
 } ObjType;
 
+/* Maps the enum value to a string. */
+static const char* objTypeAsString[] = {
+    "closure",
+    "function",
+    "native",
+    "string",
+    "upvalue",
+};
+
 struct Obj {
     ObjType type;
     bool isMarked;
