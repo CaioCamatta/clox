@@ -37,6 +37,7 @@ typedef struct {
     int grayCount;
     int grayCapacity;
     Obj** grayStack;
+    bool markedState;  // Objects in this state are currently "marked". This is an optimization so we don't have to flip mark back to 'false' after GC is done sweep.
 } VM;
 
 extern VM vm;

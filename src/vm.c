@@ -72,6 +72,7 @@ void initVM() {
     vm.grayCount = 0;
     vm.grayCapacity = 0;
     vm.grayStack = NULL;
+    vm.markedState = true;  // For the first garbage collection, objects with the 'mark' flag set to true won't be swept.
 
     initTable(&vm.globals);
     initTable(&vm.strings);
