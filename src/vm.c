@@ -127,6 +127,13 @@ static bool call(ObjClosure* closure, int argCount) {
 static bool callValue(Value callee, int argCount) {
     if (IS_OBJ(callee)) {
         switch (OBJ_TYPE(callee)) {
+            case OBJ_CLASS: {
+                // If the Value being callend (the object resulting from calling the expr to the left of the opening parenthesis) is a class, treat it as constructor call
+                ObjClass* loxClass = AS_CLASS(callee);
+                // Store the result on the stack right before the arguments
+                vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(loxClass));
+                return true;
+            }
             case OBJ_CLOSURE:
                 return call(AS_CLOSURE(callee), argCount);
             case OBJ_NATIVE: {
@@ -338,6 +345,39 @@ static InterpretResult run() {
                 push(BOOL_VAL(valuesEqual(a, b)));
                 break;
             }
+            case OP_GET_PROPERTY: {
+                if (!IS_INSTANCE(peek(0))) {
+                    runtimeError("Only instances have properties.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // At this point, the resulting instance is on top of the stack
+                ObjInstance* instance = AS_INSTANCE(peek(0));
+                ObjString* name = READ_STRING();
+
+                Value value;
+                if (tableGet(&instance->fields, name, &value)) {
+                    pop();  // Pop the instance
+                    push(value);
+                    break;
+                }
+
+                runtimeError("Undefined property '%s'.", name->chars);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_SET_PROPERTY: {
+                if (!IS_INSTANCE(peek(1))) {
+                    runtimeError("Only instances have fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjInstance* instance = AS_INSTANCE(peek(1));         // The instance is the second highest element on the stack
+                tableSet(&instance->fields, READ_STRING(), peek(0));  // the value to be store is on the top of the stack
+                Value value = pop();
+                pop();
+                push(value);  // Leave value on the stack. This is "a Lox thing" that allows for 'print a.b = "c"' -> prints "c"'
+                break;
+            }
             case OP_GREATER:
                 BINARY_OP(BOOL_VAL, >);
                 break;
@@ -450,6 +490,9 @@ static InterpretResult run() {
                 frame = &vm.frames[vm.frameCount - 1];
                 break;
             }
+            case OP_CLASS:
+                push(OBJ_VAL(newClass(READ_STRING())));
+                break;
         }
     }
 

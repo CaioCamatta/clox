@@ -1,0 +1,10 @@
+class Brioche {}
+print Brioche;
+print Brioche();
+
+class Vector {}
+
+var v = Vector();
+v.x = 1;
+v.y = 2;
+print v.x + v.y;
