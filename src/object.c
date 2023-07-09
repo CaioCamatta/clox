@@ -16,7 +16,7 @@
 static Obj* allocateObject(size_t size, ObjType type) {
     Obj* object = (Obj*)reallocate(NULL, 0, size);
     object->type = type;
-    object->isMarked = false;
+    object->numRefs = 0;
 
     // every time we allocate an obj, update the global lsit of objects.
     // this is useful for GC
@@ -24,7 +24,7 @@ static Obj* allocateObject(size_t size, ObjType type) {
     vm.objects = object;
 
 #ifdef DEBUG_LOG_GC
-    printf("%p allocate %zu for %d\n", (void*)object, size, type);
+    printf("%p allocate %zu for %s\n", (void*)object, size, objTypeAsString[object->type]);
 #endif
 
     return object;

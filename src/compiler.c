@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "common.h"
-#include "memory.h"
 #include "scanner.h"
 
 #ifdef DEBUG_PRINT_CODE
@@ -926,13 +925,4 @@ ObjFunction* compile(const char* source) {
 
     ObjFunction* function = endCompiler();
     return parser.hadError ? NULL : function;
-}
-
-/* Mark reachable objects for GC. In practice these are just ObjFunctions we're compiling into. */
-void markCompilerRoots() {
-    Compiler* compiler = current;
-    while (compiler != NULL) {
-        markObject((Obj*)compiler->function);
-        compiler = compiler->enclosing;
-    }
 }

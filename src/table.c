@@ -59,6 +59,11 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
     if (entry->key == NULL) return false;
 
     *value = entry->value;
+
+    // Increase number of references when we get this entry
+    entry->key->obj.numRefs++;
+    if (IS_OBJ(entry->value)) AS_OBJ(entry->value)->numRefs++;
+
     return true;
 }
 
@@ -103,6 +108,11 @@ bool tableSet(Table* table, ObjString* key, Value value) {
 
     entry->key = key;
     entry->value = value;
+
+    // Increase number of references when we get this entry
+    entry->key->obj.numRefs++;
+    if (IS_OBJ(entry->value)) AS_OBJ(entry->value)->numRefs++;
+
     return isNewKey;
 }
 
@@ -149,27 +159,5 @@ ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t
         }
 
         index = (index + 1) % table->capacity;
-    }
-}
-
-/**
- * Delete all non-null entries that are marked white.
- *
- * This function is intended to be used to delete interned strings before the string Objs are swept by GC. This prevents dangling pointers to the table entries.  */
-void tableRemoveWhite(Table* table) {
-    for (int i = 0; i < table->capacity; i++) {
-        Entry* entry = &table->entries[i];
-        if (entry->key != NULL && !entry->key->obj.isMarked) {
-            tableDelete(table, entry->key);
-        }
-    }
-}
-
-/* Mark entries and key strings for GC*/
-void markTable(Table* table) {
-    for (int i = 0; i < table->capacity; i++) {
-        Entry* entry = &table->entries[i];
-        markObject((Obj*)entry->key);
-        markValue(entry->value);
     }
 }

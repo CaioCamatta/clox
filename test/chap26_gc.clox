@@ -1,0 +1,14 @@
+fun vector(x, y) {
+  fun object() { x; y; }
+  return object;
+}
+
+fun loop() {
+    for (var a = 0; a < 10000000; a = a + 1) {
+        vector(a, a+1);
+    }
+}
+
+var start = clock();
+loop();
+print clock() - start;
