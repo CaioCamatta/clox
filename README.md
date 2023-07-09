@@ -14,6 +14,11 @@ FNV-1a Hashing:
 - [FNV Hash](http://www.isthe.com/chongo/tech/comp/fnv/)
 - [Which hashing algorithm is best for uniqueness and speed?](https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed)
 
+Reference counting:
+
+- [Automatic Memory Management](https://course.ccs.neu.edu/cs4410sp22/lec_memory-management_notes.html)
+- [Reference Count, Don't Garbage Collect](https://kevinlawler.com/refcount)
+
 Inspiration:
 
 - [The Implementation of Lua 5.0](https://www.lua.org/doc/jucs05.pdf) (very similar to Lox)
