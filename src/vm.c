@@ -19,6 +19,17 @@ static Value clockNative(int argCount, Value* args) {
     return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
 }
 
+/* Check if object/class has attribute/field. (By default, accessing a non-existing field in Lox causes an error.) */
+static Value hasAttrNative(int argCount, Value* args) {
+    // If we had error handling we would raise a helpful error for each case.
+    if (argCount != 2) return BOOL_VAL(false);
+    if (!IS_INSTANCE(args[0]) || !IS_STRING(args[1])) return BOOL_VAL(false);
+
+    ObjInstance* instance = AS_INSTANCE(args[0]);
+    Value value;
+    return BOOL_VAL(tableGet(&instance->fields, AS_STRING(args[1]), &value));
+}
+
 static void resetStack() {
     vm.stackTop = vm.stack;
     vm.frameCount = 0;
@@ -77,6 +88,7 @@ void initVM() {
     initTable(&vm.strings);
 
     defineNative("clock", clockNative);
+    defineNative("hasAttr", hasAttrNative);
 }
 
 // Once the program is done, free all objects

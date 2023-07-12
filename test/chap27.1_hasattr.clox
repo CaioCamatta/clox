@@ -1,0 +1,7 @@
+class Car {}
+var myCar = Car();
+print hasAttr(myCar, "model"); // false
+
+var yourCar = Car();
+yourCar.model = "Lada";
+print hasAttr(yourCar, "model"); // true
