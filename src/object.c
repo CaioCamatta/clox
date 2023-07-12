@@ -30,6 +30,13 @@ static Obj* allocateObject(size_t size, ObjType type) {
     return object;
 }
 
+/* Create new class object. */
+ObjClass* newClass(ObjString* name) {
+    ObjClass* loxClass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
+    loxClass->name = name;
+    return loxClass;
+}
+
 /* Create new cluster that wraps a function. */
 ObjClosure* newClosure(ObjFunction* function) {
     // Allocate array of upvalues with correct size. The size was determined at compile time.
@@ -54,6 +61,14 @@ ObjFunction* newFunction() {
     initChunk(&function->chunk);
     function->name = NULL;
     return function;
+}
+
+/* Instantiate a class. */
+ObjInstance* newInstance(ObjClass* loxClass) {
+    ObjInstance* instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
+    instance->loxClass = loxClass;
+    initTable(&instance->fields);
+    return instance;
 }
 
 /* Create new native function. Take a C function pointer and wrap it in an ObjNative. */
@@ -144,11 +159,18 @@ static void printFunction(ObjFunction* function) {
 
 void printObject(Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_CLASS:
+            printf("%s", AS_CLASS(value)->name->chars);
+            break;
         case OBJ_CLOSURE:
             printFunction(AS_CLOSURE(value)->function);
             break;
         case OBJ_FUNCTION:
             printFunction(AS_FUNCTION(value));
+            break;
+        case OBJ_INSTANCE:
+            printf("%s instance",
+                   AS_INSTANCE(value)->loxClass->name->chars);
             break;
         case OBJ_NATIVE:
             printf("<native fn>");
