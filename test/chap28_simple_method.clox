@@ -1,0 +1,8 @@
+class Lawn {
+  mow(personName) {
+    print personName + " is mowing the lawn.";
+  }
+}
+
+var lawn = Lawn();
+lawn.mow("Jimmy");

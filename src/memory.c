@@ -100,9 +100,16 @@ static void blackenObject(Obj* object) {
 #endif
 
     switch (object->type) {
+        case OBJ_BOUND_METHOD: {
+            ObjBoundMethod* bound = (ObjBoundMethod*)object;
+            markValue(bound->receiver);
+            markObject((Obj*)bound->method);
+            break;
+        }
         case OBJ_CLASS: {
             ObjClass* loxClass = (ObjClass*)object;
             markObject((Obj*)loxClass->name);  // Keep name alive too
+            markTable(&loxClass->methods);
             break;
         }
         case OBJ_CLOSURE: {
@@ -143,7 +150,13 @@ static void freeObject(Obj* object) {
 #endif
 
     switch (object->type) {
+        case OBJ_BOUND_METHOD:
+            // the bound method doesn't own its references, so it just frees itself.
+            FREE(ObjBoundMethod, object);
+            break;
         case OBJ_CLASS: {
+            ObjClass* loxClass = (ObjClass*)object;
+            freeTable(&loxClass->methods);
             FREE(ObjClass, object);
             break;
         }
@@ -211,6 +224,7 @@ static void markRoots() {
 
     // GC can also run during compiling
     markCompilerRoots();
+    markObject((Obj*)vm.initString);
 }
 
 /* Traverse stack of grays until all are black. */
