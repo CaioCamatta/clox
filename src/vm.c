@@ -88,8 +88,8 @@ void initVM() {
     initTable(&vm.strings);
 
     // Intern the string 'init' so we can access it quickly
-    vm.initString = copyString("init", 4);
     vm.initString = NULL;
+    vm.initString = copyString("init", 4);
 
     defineNative("clock", clockNative);
     defineNative("hasAttr", hasAttrNative);
@@ -157,7 +157,8 @@ static bool callValue(Value callee, int argCount) {
                 vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(loxClass));
 
                 Value initializer;
-                if (tableGet(&loxClass->methods, vm.initString,
+                if (tableGet(&loxClass->methods,
+                             vm.initString,
                              &initializer)) {
                     return call(AS_CLOSURE(initializer), argCount);
                 } else if (argCount != 0) {

@@ -1,15 +1,23 @@
-class CoffeeMaker {
-  init(coffee) {
-    this.coffee = coffee;
+class Car {
+  init(model) {
+    this.model = model;
   }
 
-  brew() {
-    print "Enjoy your cup of " + this.coffee;
+  readModel() {
+    if (this.model){
+      print "This car is a " + this.model + " 👍";
+    } else {
+      print "Can't tell what the model is 🤷🏼";
+    }
+  }
 
-    // No reusing the grounds!
-    this.coffee = nil;
+  crash() {
+    print "The car crashed 😭";
+    this.model = nil;
   }
 }
 
-var maker = CoffeeMaker("coffee and chicory");
-maker.brew();
+var car = Car("Porsche 911");
+car.readModel();
+car.crash();
+car.readModel();
