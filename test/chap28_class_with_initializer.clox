@@ -1,0 +1,23 @@
+class Car {
+  init(model) {
+    this.model = model;
+  }
+
+  readModel() {
+    if (this.model){
+      print "This car is a " + this.model + " 👍";
+    } else {
+      print "Can't tell what the model is 🤷🏼";
+    }
+  }
+
+  crash() {
+    print "The car crashed 😭";
+    this.model = nil;
+  }
+}
+
+var car = Car("Porsche 911");
+car.readModel();
+car.crash();
+car.readModel();

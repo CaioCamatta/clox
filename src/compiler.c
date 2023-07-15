@@ -58,6 +58,8 @@ typedef struct {
 // Differentiates between top-level code and function body
 typedef enum {
     TYPE_FUNCTION,
+    TYPE_METHOD,
+    TYPE_INITIALIZER,
     TYPE_SCRIPT
 } FunctionType;
 
@@ -72,8 +74,14 @@ typedef struct Compiler {
     int scopeDepth;  // number of blocks surrounding current bit of code being compiled
 } Compiler;
 
+typedef struct ClassCompiler {
+    struct ClassCompiler* enclosing;
+} ClassCompiler;
+
 Parser parser;
 Compiler* current = NULL;
+ClassCompiler* currentClass = NULL;  // Current, innermost class being compiled (used for checking errors when users access 'this')
+
 Chunk* compilingChunk;
 
 static Chunk* currentChunk() {
@@ -175,9 +183,14 @@ static int emitJump(uint8_t instruction) {
     return currentChunk()->count - 2;
 }
 
-/* Emit an OP_RETURN and implicitly return nil. Meant to be called at the end of functions. */
-static void emitNilReturn() {
-    emitByte(OP_NIL);  // Implicitly return nil for functions that don't return anything.
+static void emitReturn() {
+    // In an initializer, load slop zero which contains the instance
+    if (current->type == TYPE_INITIALIZER) {
+        emitBytes(OP_GET_LOCAL, 0);
+    } else {
+        emitByte(OP_NIL);  // Implicitly return nil for functions that don't return anything.
+    }
+
     emitByte(OP_RETURN);
 }
 
@@ -226,12 +239,17 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
     Local* local = &current->locals[current->localCount++];
     local->depth = 0;
     local->isCaptured = false;
-    local->name.start = "";  // Can't be referred to by the user
-    local->name.length = 0;
+    if (type != TYPE_FUNCTION) {
+        local->name.start = "this";  // Use slot zero to store the instance that 'this' is bound to
+        local->name.length = 4;
+    } else {
+        local->name.start = "";
+        local->name.length = 0;
+    }
 }
 
 static ObjFunction* endCompiler() {
-    emitNilReturn();
+    emitReturn();
     ObjFunction* function = current->function;
 
 #ifdef DEBUG_PRINT_CODE
@@ -498,6 +516,10 @@ static void dot(bool canAssign) {
     if (canAssign && match(TOKEN_EQUAL)) {
         expression();
         emitBytes(OP_SET_PROPERTY, name);
+    } else if (match(TOKEN_LEFT_PAREN)) {  // This is an optimization that sort of combines OP_GET_PROPERTY and OP_CALL
+        uint8_t argCount = argumentList();
+        emitBytes(OP_INVOKE, name);
+        emitByte(argCount);
     } else {
         emitBytes(OP_GET_PROPERTY, name);
     }
@@ -581,6 +603,16 @@ static void variable(bool canAssign) {
     namedVariable(parser.previous, canAssign);
 }
 
+/* Take previous token (which is 'this') and access it using variable(). */
+static void this_(bool canAssign) {
+    if (currentClass == NULL) {
+        error("Can't use 'this' outside of a class.");
+        return;
+    }
+
+    variable(false);  // can't assign to 'this;
+}
+
 static void unary(bool canAssign) {
     TokenType operatorType = parser.previous.type;
 
@@ -646,7 +678,7 @@ ParseRule rules[] = {
     [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
     [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
     [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
-    [TOKEN_THIS] = {NULL, NULL, PREC_NONE},
+    [TOKEN_THIS] = {this_, NULL, PREC_NONE},
     [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
     [TOKEN_VAR] = {NULL, NULL, PREC_NONE},
     [TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
@@ -733,18 +765,50 @@ static void function(FunctionType type) {
     }
 }
 
+static void method() {
+    consume(TOKEN_IDENTIFIER, "Expect method name.");
+    uint8_t constant = identifierConstant(&parser.previous);
+
+    FunctionType type = TYPE_METHOD;
+    // Detect that we're compiling an initializer
+    if (parser.previous.length == 4 &&
+        memcmp(parser.previous.start, "init", 4) == 0) {
+        type = TYPE_INITIALIZER;
+    }
+
+    function(type);
+    emitBytes(OP_METHOD, constant);
+}
+
 static void classDeclaration() {
     consume(TOKEN_IDENTIFIER, "Expect class name.");
+    Token className = parser.previous;
     // Add identifier to surrounding function's constant table.
     uint8_t nameConstant = identifierConstant(&parser.previous);
     // Bind name ot a variable
     declareVariable();
 
     emitBytes(OP_CLASS, nameConstant);
-    defineVariable(nameConstant);
+    defineVariable(nameConstant);  // Pops the class
 
+    // Keep track of the fact that we're compiling a class
+    ClassCompiler classCompiler;
+    classCompiler.enclosing = currentClass;
+    currentClass = &classCompiler;
+
+    namedVariable(className, false);  // Insert class name back on the stack to use in methods
     consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+
+    while (!(check(TOKEN_RIGHT_BRACE) || check(TOKEN_EOF))) {
+        // Lox doesn't have field declarations.
+        // Everything before the end of the body must be a method
+        method();
+    }
+
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+    emitByte(OP_POP);  // Pop class
+
+    currentClass = currentClass->enclosing;
 }
 
 static void funDeclaration() {
@@ -859,8 +923,12 @@ static void returnStatement() {
     }
 
     if (match(TOKEN_SEMICOLON)) {
-        emitNilReturn();
+        emitReturn();
     } else {
+        if (current->type == TYPE_INITIALIZER) {
+            error("Can't return a value from an initializer.");
+        }
+
         expression();
         consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
         emitByte(OP_RETURN);

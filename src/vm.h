@@ -29,6 +29,7 @@ typedef struct {
     Value* stackTop;           // Use actual pointer instead of int index (faster dereferencing)
     Table globals;             // Global vars
     Table strings;             // Stores ("interns") every string that's been created. Used for string deduplication.
+    ObjString* initString;     // For fast access to the string 'init'
     ObjUpvalue* openUpvalues;  // All open upvalues (i.e. not hoisted / still on the stack)
 
     size_t bytesAllocated;

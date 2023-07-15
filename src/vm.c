@@ -87,6 +87,10 @@ void initVM() {
     initTable(&vm.globals);
     initTable(&vm.strings);
 
+    // Intern the string 'init' so we can access it quickly
+    vm.initString = NULL;
+    vm.initString = copyString("init", 4);
+
     defineNative("clock", clockNative);
     defineNative("hasAttr", hasAttrNative);
 }
@@ -95,6 +99,7 @@ void initVM() {
 void freeVM() {
     freeTable(&vm.globals);
     freeTable(&vm.strings);
+    vm.initString = NULL;
     freeObjects();
 }
 
@@ -139,11 +144,29 @@ static bool call(ObjClosure* closure, int argCount) {
 static bool callValue(Value callee, int argCount) {
     if (IS_OBJ(callee)) {
         switch (OBJ_TYPE(callee)) {
+            case OBJ_BOUND_METHOD: {
+                ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
+                // When a method is called, put the instance in slot zero of the callframe
+                vm.stackTop[-argCount - 1] = bound->receiver;
+                return call(bound->method, argCount);
+            }
             case OBJ_CLASS: {
                 // If the Value being callend (the object resulting from calling the expr to the left of the opening parenthesis) is a class, treat it as constructor call
                 ObjClass* loxClass = AS_CLASS(callee);
                 // Store the result on the stack right before the arguments
                 vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(loxClass));
+
+                Value initializer;
+                if (tableGet(&loxClass->methods,
+                             vm.initString,
+                             &initializer)) {
+                    return call(AS_CLOSURE(initializer), argCount);
+                } else if (argCount != 0) {
+                    runtimeError("Expected 0 arguments but got %d.",
+                                 argCount);
+                    return false;
+                }
+
                 return true;
             }
             case OBJ_CLOSURE:
@@ -162,6 +185,53 @@ static bool callValue(Value callee, int argCount) {
     }
     runtimeError("Can only call functions and classes.");
     return false;
+}
+
+/* Combines OP_GET_PROPERTY and OP_CALL to speed up how fast we can invoke methods. */
+static bool invokeFromClass(ObjClass* loxClass, ObjString* name,
+                            int argCount) {
+    Value method;
+    if (!tableGet(&loxClass->methods, name, &method)) {
+        runtimeError("Undefined property '%s'.", name->chars);
+        return false;
+    }
+    return call(AS_CLOSURE(method), argCount);
+}
+
+/* Invoke a method */
+static bool invoke(ObjString* name, int argCount) {
+    Value receiver = peek(argCount);  // the receiving instance is slot zero
+
+    if (!IS_INSTANCE(receiver)) {
+        runtimeError("Only instances have methods.");
+        return false;
+    }
+
+    ObjInstance* instance = AS_INSTANCE(receiver);
+
+    // Check if we're actually calling a field (that references a function) instead of a method
+    Value value;
+    if (tableGet(&instance->fields, name, &value)) {
+        vm.stackTop[-argCount - 1] = value;
+        return callValue(value, argCount);
+    }
+
+    return invokeFromClass(instance->loxClass, name, argCount);
+}
+
+/* Bind a method to an instance */
+static bool bindMethod(ObjClass* loxClass, ObjString* name) {
+    Value method;
+    if (!tableGet(&loxClass->methods, name, &method)) {
+        runtimeError("Undefined property '%s'.", name->chars);
+        return false;
+    }
+
+    ObjBoundMethod* bound = newBoundMethod(peek(0),
+                                           AS_CLOSURE(method));
+    pop();
+    push(OBJ_VAL(bound));
+    return true;
 }
 
 /**
@@ -209,6 +279,13 @@ static void closeUpvalues(Value* last) {
         upvalue->location = &upvalue->closed;  // Point the location to the Upvalue's own closed field. That way, whenever the program wants to dereference the location to get the variable value, it will access the Upvalue itself. This essentially "closes" the upvalue so the hereon variable's value is stored in the heap instead of the stack.
         vm.openUpvalues = upvalue->next;
     }
+}
+
+static void defineMethod(ObjString* name) {
+    Value method = peek(0);  // Method closure
+    ObjClass* loxClass = AS_CLASS(peek(1));
+    tableSet(&loxClass->methods, name, method);
+    pop();
 }
 
 /* nil and false are falsey. Everything else is truthy*/
@@ -373,9 +450,10 @@ static InterpretResult run() {
                     push(value);
                     break;
                 }
-
-                runtimeError("Undefined property '%s'.", name->chars);
-                return INTERPRET_RUNTIME_ERROR;
+                if (!bindMethod(instance->loxClass, name)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
             }
             case OP_SET_PROPERTY: {
                 if (!IS_INSTANCE(peek(1))) {
@@ -460,6 +538,15 @@ static InterpretResult run() {
                 frame = &vm.frames[vm.frameCount - 1];
                 break;
             }
+            case OP_INVOKE: {
+                ObjString* method = READ_STRING();  // method name is first operand
+                int argCount = READ_BYTE();         // argcount is second operand
+                if (!invoke(method, argCount)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                frame = &vm.frames[vm.frameCount - 1];
+                break;
+            }
             case OP_CLOSURE: {
                 // Load compuled function from constant table
                 ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
@@ -504,6 +591,9 @@ static InterpretResult run() {
             }
             case OP_CLASS:
                 push(OBJ_VAL(newClass(READ_STRING())));
+                break;
+            case OP_METHOD:
+                defineMethod(READ_STRING());
                 break;
         }
     }

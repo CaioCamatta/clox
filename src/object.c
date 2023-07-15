@@ -30,10 +30,21 @@ static Obj* allocateObject(size_t size, ObjType type) {
     return object;
 }
 
+/* Create new bound method from receiver (instance) and method. */
+ObjBoundMethod* newBoundMethod(Value receiver,
+                               ObjClosure* method) {
+    ObjBoundMethod* bound = ALLOCATE_OBJ(ObjBoundMethod,
+                                         OBJ_BOUND_METHOD);
+    bound->receiver = receiver;
+    bound->method = method;
+    return bound;
+}
+
 /* Create new class object. */
 ObjClass* newClass(ObjString* name) {
     ObjClass* loxClass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
     loxClass->name = name;
+    initTable(&loxClass->methods);
     return loxClass;
 }
 
@@ -159,6 +170,9 @@ static void printFunction(ObjFunction* function) {
 
 void printObject(Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_BOUND_METHOD:
+            printFunction(AS_BOUND_METHOD(value)->method->function);
+            break;
         case OBJ_CLASS:
             printf("%s", AS_CLASS(value)->name->chars);
             break;

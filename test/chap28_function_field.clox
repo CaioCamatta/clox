@@ -1,0 +1,22 @@
+class Car {
+  init(model) {
+    this.milesTravelled = 0;
+
+    fun driveMiles(miles){
+        this.milesTravelled = this.milesTravelled + miles;
+    }
+
+    this.drive = driveMiles;
+  }
+
+  readMilesTravelled(){
+    print(this.milesTravelled);
+  }
+}
+
+var car = Car("Porsche 911");
+car.readMilesTravelled();
+car.drive(1);
+car.readMilesTravelled();
+car.drive(5);
+car.readMilesTravelled();
