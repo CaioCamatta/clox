@@ -48,7 +48,7 @@ static const char* objTypeAsString[] = {
 
 struct Obj {
     ObjType type;
-    bool isMarked;
+    bool mark;
     struct Obj* next;  // Intrusive pointer to next object for GC
 };
 

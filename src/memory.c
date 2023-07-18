@@ -51,7 +51,7 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 /* Mark object for GC */
 void markObject(Obj* object) {
     if (object == NULL) return;
-    if (object->isMarked) return;  // Prevents looping on cycles
+    if (object->mark == vm.markedState) return;  // Prevents looping on cycles
 
 #ifdef DEBUG_LOG_GC
     printf("%p mark ", (void*)object);
@@ -59,7 +59,7 @@ void markObject(Obj* object) {
     printf("\n");
 #endif
 
-    object->isMarked = true;
+    object->mark = vm.markedState;
 
     // Mark objects as gray
     if (vm.grayCapacity < vm.grayCount + 1) {
@@ -90,7 +90,7 @@ static void markArray(ValueArray* array) {
 /**
  * Recursively blacken objects.
  *
- * A object is black if its isMarked field is set but it is no longer in the gray stack
+ * A object is black if its mark field is equal to 'markedState' but it is no longer in the gray stack
  */
 static void blackenObject(Obj* object) {
 #ifdef DEBUG_LOG_GC
@@ -241,8 +241,7 @@ static void sweep() {
     Obj* object = vm.objects;
 
     while (object != NULL) {
-        if (object->isMarked) {
-            object->isMarked = false;  // For next GC cycle
+        if (object->mark == vm.markedState) {
             previous = object;
             object = object->next;
         } else {
@@ -258,6 +257,7 @@ static void sweep() {
             freeObject(unreached);
         }
     }
+    vm.markedState = !(vm.markedState);
 }
 
 /* Mark-and-sweep garbage collection. */
