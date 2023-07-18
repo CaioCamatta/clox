@@ -44,6 +44,7 @@ ObjBoundMethod* newBoundMethod(Value receiver,
 ObjClass* newClass(ObjString* name) {
     ObjClass* loxClass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
     loxClass->name = name;
+    loxClass->initializer = NIL_VAL;
     initTable(&loxClass->methods);
     return loxClass;
 }

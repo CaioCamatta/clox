@@ -156,11 +156,8 @@ static bool callValue(Value callee, int argCount) {
                 // Store the result on the stack right before the arguments
                 vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(loxClass));
 
-                Value initializer;
-                if (tableGet(&loxClass->methods,
-                             vm.initString,
-                             &initializer)) {
-                    return call(AS_CLOSURE(initializer), argCount);
+                if (!IS_NIL(loxClass->initializer)) {
+                    return call(AS_CLOSURE(loxClass->initializer), argCount);
                 } else if (argCount != 0) {
                     runtimeError("Expected 0 arguments but got %d.",
                                  argCount);
@@ -284,6 +281,7 @@ static void closeUpvalues(Value* last) {
 static void defineMethod(ObjString* name) {
     Value method = peek(0);  // Method closure
     ObjClass* loxClass = AS_CLASS(peek(1));
+    if (name == vm.initString) loxClass->initializer = method;
     tableSet(&loxClass->methods, name, method);
     pop();
 }
