@@ -1,0 +1,11 @@
+class Car {
+  init(model) {
+    this.model = model;
+  }
+}
+
+var start = clock();
+for (var i = 0; i < 1000000; i = i + 1){
+    var c = Car("Lada");
+}
+print clock() - start;
