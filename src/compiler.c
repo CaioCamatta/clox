@@ -76,6 +76,7 @@ typedef struct Compiler {
 
 typedef struct ClassCompiler {
     struct ClassCompiler* enclosing;
+    bool hasSuperclass;
 } ClassCompiler;
 
 Parser parser;
@@ -604,6 +605,14 @@ static void variable(bool canAssign) {
     namedVariable(parser.previous, canAssign);
 }
 
+/* Create a Token for the given constant string. */
+static Token syntheticToken(const char* text) {
+    Token token;
+    token.start = text;
+    token.length = (int)strlen(text);
+    return token;
+}
+
 /* Take previous token (which is 'this') and access it using variable(). */
 static void this_(bool canAssign) {
     if (currentClass == NULL) {
@@ -794,6 +803,7 @@ static void classDeclaration() {
 
     // Keep track of the fact that we're compiling a class
     ClassCompiler classCompiler;
+    classCompiler.hasSuperclass = false;
     classCompiler.enclosing = currentClass;
     currentClass = &classCompiler;
 
@@ -806,8 +816,15 @@ static void classDeclaration() {
             error("A class can't inherit from itself.");
         }
 
+        // To be able to reference the super class, we create a scope and define a variable in it.
+        // Then, the methods can automatically access this variable via an upvalue.
+        beginScope();
+        addLocal(syntheticToken("super"));  // Super is a reserved keyword
+        defineVariable(0);
+
         namedVariable(className, false);  // Load subclass onto stack
         emitByte(OP_INHERIT);             // Wire superclass to new (sub)class
+        classCompiler.hasSuperclass = true;
     }
 
     namedVariable(className, false);  // Insert class name back on the stack to use in methods
@@ -821,6 +838,10 @@ static void classDeclaration() {
 
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
     emitByte(OP_POP);  // Pop class
+
+    if (classCompiler.hasSuperclass) {
+        endScope();
+    }
 
     currentClass = currentClass->enclosing;
 }
