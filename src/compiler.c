@@ -599,6 +599,7 @@ static void namedVariable(Token name, bool canAssign) {
     }
 }
 
+/* Load variable using previous consumed token as name. */
 static void variable(bool canAssign) {
     namedVariable(parser.previous, canAssign);
 }
@@ -795,6 +796,19 @@ static void classDeclaration() {
     ClassCompiler classCompiler;
     classCompiler.enclosing = currentClass;
     currentClass = &classCompiler;
+
+    // Do the inheritance stuff before declaring methods so the subclass' methods override the superclass'.
+    if (match(TOKEN_LESS)) {
+        consume(TOKEN_IDENTIFIER, "Expect superclass name.");
+        variable(false);  // Load superclass onto stack
+
+        if (identifiersEqual(&className, &parser.previous)) {
+            error("A class can't inherit from itself.");
+        }
+
+        namedVariable(className, false);  // Load subclass onto stack
+        emitByte(OP_INHERIT);             // Wire superclass to new (sub)class
+    }
 
     namedVariable(className, false);  // Insert class name back on the stack to use in methods
     consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
