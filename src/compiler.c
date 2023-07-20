@@ -76,6 +76,7 @@ typedef struct Compiler {
 
 typedef struct ClassCompiler {
     struct ClassCompiler* enclosing;
+    bool hasSuperclass;
 } ClassCompiler;
 
 Parser parser;
@@ -599,8 +600,43 @@ static void namedVariable(Token name, bool canAssign) {
     }
 }
 
+/* Load variable using previous consumed token as name. */
 static void variable(bool canAssign) {
     namedVariable(parser.previous, canAssign);
+}
+
+/* Create a Token for the given constant string. */
+static Token syntheticToken(const char* text) {
+    Token token;
+    token.start = text;
+    token.length = (int)strlen(text);
+    return token;
+}
+
+/* Access a superclass method using dot notation */
+static void super_(bool canAssign) {
+    if (currentClass == NULL) {
+        error("Can't use 'super' outside of a class.");
+    } else if (!currentClass->hasSuperclass) {
+        error("Can't use 'super' in a class with no superclass.");
+    }
+
+    consume(TOKEN_DOT, "Expect '.' after 'super'.");
+    consume(TOKEN_IDENTIFIER, "Expect superclass method name.");
+    uint8_t name = identifierConstant(&parser.previous);
+
+    namedVariable(syntheticToken("this"), false);  // Look up current instance in hidden variable "this", push it onto stack
+
+    // Optimization: if we're just about to call the method, combine OP_GET_SUPER and OP_CALL into OP_SUPER_INVOKE
+    if (match(TOKEN_LEFT_PAREN)) {
+        uint8_t argCount = argumentList();
+        namedVariable(syntheticToken("super"), false);  // Look up super class from "super" variable, push onto stack
+        emitBytes(OP_SUPER_INVOKE, name);
+        emitByte(argCount);
+    } else {
+        namedVariable(syntheticToken("super"), false);
+        emitBytes(OP_GET_SUPER, name);  // Encode name of the superclass method to access as operand
+    }
 }
 
 /* Take previous token (which is 'this') and access it using variable(). */
@@ -677,7 +713,7 @@ ParseRule rules[] = {
     [TOKEN_OR] = {NULL, or_, PREC_OR},
     [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
     [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
-    [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
+    [TOKEN_SUPER] = {super_, NULL, PREC_NONE},
     [TOKEN_THIS] = {this_, NULL, PREC_NONE},
     [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
     [TOKEN_VAR] = {NULL, NULL, PREC_NONE},
@@ -793,8 +829,29 @@ static void classDeclaration() {
 
     // Keep track of the fact that we're compiling a class
     ClassCompiler classCompiler;
+    classCompiler.hasSuperclass = false;
     classCompiler.enclosing = currentClass;
     currentClass = &classCompiler;
+
+    // Do the inheritance stuff before declaring methods so the subclass' methods override the superclass'.
+    if (match(TOKEN_LESS)) {
+        consume(TOKEN_IDENTIFIER, "Expect superclass name.");
+        variable(false);  // Load superclass onto stack
+
+        if (identifiersEqual(&className, &parser.previous)) {
+            error("A class can't inherit from itself.");
+        }
+
+        // To be able to reference the super class, we create a scope and define a variable in it.
+        // Then, the methods can automatically access this variable via an upvalue.
+        beginScope();
+        addLocal(syntheticToken("super"));  // Super is a reserved keyword
+        defineVariable(0);
+
+        namedVariable(className, false);  // Load subclass onto stack
+        emitByte(OP_INHERIT);             // Wire superclass to new (sub)class
+        classCompiler.hasSuperclass = true;
+    }
 
     namedVariable(className, false);  // Insert class name back on the stack to use in methods
     consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
@@ -807,6 +864,10 @@ static void classDeclaration() {
 
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
     emitByte(OP_POP);  // Pop class
+
+    if (classCompiler.hasSuperclass) {
+        endScope();
+    }
 
     currentClass = currentClass->enclosing;
 }

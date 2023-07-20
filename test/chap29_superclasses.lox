@@ -1,0 +1,25 @@
+class Vehicle    {
+    init(type){
+        this.type = type;
+    }
+
+    printType(){
+        print this.type;
+    }
+}
+
+class Car < Vehicle {
+  init(model) {
+    super.init("Automobile");
+    
+    fun printInfo(){
+        super.printType();
+        print model;
+    }
+
+    this.printInfo = printInfo;
+  }
+}
+
+var car = Car("Porsche 911");
+car.printInfo();
