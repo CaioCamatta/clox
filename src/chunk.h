@@ -21,6 +21,7 @@ typedef enum {
     OP_GET_PROPERTY,
     OP_SET_PROPERTY,
     OP_EQUAL,
+    OP_GET_SUPER,
     OP_GREATER,
     OP_LESS,
     OP_ADD,
@@ -35,6 +36,7 @@ typedef enum {
     OP_LOOP,
     OP_CALL,
     OP_INVOKE,
+    OP_SUPER_INVOKE,
     OP_CLOSURE,
     OP_CLOSE_UPVALUE,
     OP_RETURN,  // One-byte opcode
