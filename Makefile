@@ -8,7 +8,7 @@ OBJECTS := $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(wildcard $(SRC)/*.c))
 
 all: $(EXE)
 
-debug: CFLAGS += -g
+debug: CFLAGS += -pg
 debug: $(EXE)
 
 $(EXE): $(SRC) $(OBJ) $(OBJECTS)
