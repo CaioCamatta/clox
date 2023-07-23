@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define NAN_BOXING  // Use NaN boxing for Values
+
 // #define DEBUG_PRINT_CODE
 // #define DEBUG_TRACE_EXECUTION
 

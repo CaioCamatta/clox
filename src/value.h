@@ -1,10 +1,42 @@
 #ifndef clox_value_h
 #define clox_value_h
 
+#include <string.h>
+
 #include "common.h"
 
 typedef struct Obj Obj;
 typedef struct ObjString ObjString;
+
+#ifdef NAN_BOXING
+
+// non number values use the quiet NaN flag (bit 51 in IEEE-754) + all exponent bits + bit 50 (intel FP Indef. edge case)
+#define QNAN ((uint64_t)0x7ffc000000000000)
+
+typedef uint64_t Value;
+
+#define IS_NUMBER(value) (((value)&QNAN) != QNAN)
+
+#define AS_NUMBER(value) valueToNum(value)
+
+#define NUMBER_VAL(num) numToValue(num)
+
+// Convert double to Value.
+static inline Value numToValue(double num) {
+    Value value;
+    // This is the supported way for type punning so the compiler should optimize away the memcpy.
+    memcpy(&value, &num, sizeof(double));
+    return value;
+}
+
+// Convert double to Value
+static inline double valueToNum(Value value) {
+    double num;
+    memcpy(&num, &value, sizeof(Value));
+    return num;
+}
+
+#else
 
 // The VM's notion of type
 typedef enum {
@@ -42,6 +74,8 @@ typedef struct {
 #define NIL_VAL ((Value){VAL_NIL, {.number = 0}})
 #define NUMBER_VAL(value) ((Value){VAL_NUMBER, {.number = value}})
 #define OBJ_VAL(object) ((Value){VAL_OBJ, {.obj = (Obj*)object}})
+
+#endif
 
 // Value array is similar to the JVM's constant pool
 typedef struct {
