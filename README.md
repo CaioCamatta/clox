@@ -2,6 +2,8 @@
 
 C implementation of Lox from [Crafting Interpreters](https://craftinginterpreters.com/).
 
+Example usage: `make && ./clox ./test/chap29_superclasses.lox`
+
 ## Resources
 
 Pratt Parser
@@ -18,3 +20,11 @@ Inspiration:
 
 - [The Implementation of Lua 5.0](https://www.lua.org/doc/jucs05.pdf) (very similar to Lox)
 - Other languages: [Forth](<https://en.wikipedia.org/wiki/Forth_(programming_language)>), [Lisp](<https://en.wikipedia.org/wiki/Lisp_(programming_language)>) \ [Lisp with GC in 436 bytes](https://justine.lol/sectorlisp2/) [io Language](https://iolanguage.org/)
+
+Profiling on a Mac:
+
+```
+xctrace record --template 'Time Profiler' --launch ./clox ./test/chap30_benchmark_zoo.lox --output ./clox.trace
+
+open ./clox.trace
+```
